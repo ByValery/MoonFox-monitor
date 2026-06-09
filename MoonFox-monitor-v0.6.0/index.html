@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>MoonFox monitor</title>
+  <link rel="stylesheet" href="/css/style.css?v=20260609-6">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <button class="brandLogoButton" type="button" onclick="openAboutModal()" title="О программе MoonFox monitor" aria-label="О программе MoonFox monitor">
+        <img src="/assets/moonfox-logo.png" class="logo" alt="">
+      </button>
+      <p id="brandSub">Следит за системой, пока ты спишь.</p>
+    </div>
+    <nav>
+      <button class="nav active" data-page="overview">🏠 Обзор</button>
+      <button class="nav" data-page="sites">🌐 Сайты</button>
+      <button class="nav" data-page="routers">🖧 Устройства</button>
+      <button class="nav" data-page="graphs">📈 Графики</button>
+      <button class="nav" data-page="events">🔔 События</button>
+      <button class="nav" data-page="settings">⚙️ Настройки</button>
+    </nav>
+    <div class="sideStatus"><span class="dot ok"></span> Система работает
+      <small id="sideDate">--.--.----</small>
+      <b id="clock">--:--:--</b>
+      <small>Последняя проверка</small>
+      <b class="miniTime" id="lastCheckSide">—</b>
+      <small>Аптайм</small>
+      <b class="miniTime" id="uptimeSide">0м</b>
+      <small>Версия 0.6.0</small></div>
+  </aside>
+
+  <main class="main">
+    <header class="top">
+      <div><h2 id="pageTitle">Обзор</h2><p id="pageDesc">Общая панель состояния мониторинга</p></div>
+      <div class="topActions">
+        <span style="color:#9fb3d9;font-size:13px;margin-right:8px;align-self:center;">Обновление экрана:</span>
+        <select id="autoSel" title="Обновление экрана"><option value="0">Выкл</option><option value="10">10 сек</option><option value="20">20 сек</option><option value="30">30 сек</option><option value="60">60 сек</option><option value="custom">Своё значение...</option></select>
+        <button class="iconBtn" onclick="checkNow()" title="Обновить данные">⟳</button>
+      </div>
+    </header>
+
+    <section id="overview" class="page active">
+      <div class="cards cards7">
+        <div class="stat blue statWithFox">🌐<span>Сайтов</span><b id="stSites">0</b><small id="stSitesOk">Онлайн: 0</small><img class="statFox" src="/assets/fox-sites.png" alt="" aria-hidden="true"></div>
+        <div class="stat green statWithFox">🖥️<span>Устройств</span><b id="stRouters">0</b><small id="stRoutersOk">Доступно: 0</small><img class="statFox statFoxDevices" src="/assets/fox-devices.png" alt="" aria-hidden="true"></div>
+        <div class="stat cyan statWithFox statAvailability">✅<span>Доступность</span><b id="stAvailability">—</b><small><span id="stSiteAvailability">Сайты: —</span><span id="stDeviceAvailability">Устройства: —</span></small><img id="availabilityFox" class="statFox statFoxAvailability" src="/assets/fox-availability.png" alt="" aria-hidden="true"></div>
+        <div class="stat orange statWithFox statProblems">⚠️<span>Проблем</span><b id="stProblems">0</b><small><span id="stSiteProblems">Сайты: 0</span><span id="stDeviceProblems">Устройства: 0</span><span>Критичных: <span id="stCritical">0</span></span></small><img id="problemsFox" class="statFox statFoxProblems" src="/assets/fox-problems-ok.png" alt="" aria-hidden="true"></div>
+        <div class="stat red statWithFox statLastProblem">🚨<span>Последняя проблема</span><b id="stLastProblemTime">Нет</b><small id="stLastProblemText">Нет проблем</small><img class="statFox statFoxLastProblem" src="/assets/fox-last-problem.png" alt="" aria-hidden="true"></div>
+        <div class="stat purple statWithFox">⚡<span>Средний отклик</span><b id="stAvgResp">—</b><small id="stAvgNote">По сайтам</small><img class="statFox statFoxResponse" src="/assets/fox-response.png" alt="" aria-hidden="true"></div>
+        <div class="stat blue statWithFox">🕒<span>Последнее обновление</span><b id="stLastUpdateCard">—</b><small id="stLastCheck">Проверка: —</small><img class="statFox statFoxLastUpdate" src="/assets/fox-last-update.png" alt="" aria-hidden="true"></div>
+        <div class="stat orange notifyStat statWithFox" onclick="toggleNotifyPanel(event)">🔔<span>Уведомления</span><b id="stNotify">0</b><small>Активных</small><img id="notifyFox" class="statFox statFoxNotify" src="/assets/fox-notify-closed.png" alt="" aria-hidden="true"><div id="notifyPanel" class="notifyPanel"></div></div>
+      </div>
+      <div class="grid two" id="overviewPreviewGrid">
+        <div class="panel overviewPreviewPanel" id="sitePreviewPanel"><div class="panelHead"><h3>Последние проверки сайтов</h3><div class="previewControls"><label>Показывать <select id="sitePreviewCount" onchange="savePreviewCount('site')"><option>1</option><option>2</option><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></label></div></div><div id="sitePreview"></div><a onclick="showPage('sites')">Перейти к сайтам →</a></div>
+        <div class="panel overviewPreviewPanel" id="routerPreviewPanel"><div class="panelHead"><h3>Статус устройств</h3><div class="previewControls"><label>Показывать <select id="devicePreviewCount" onchange="savePreviewCount('device')"><option>1</option><option>2</option><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></label></div></div><div id="routerPreview"></div><a onclick="showPage('routers')">Перейти к устройствам →</a></div>
+      </div>
+      <div class="grid two">
+        <div class="panel chartPanel"><div class="panelHead"><h3>Мониторинг сайтов</h3><div class="chartControls"><label class="chartStyleControl">Вид <select id="siteOverviewStyle" onchange="saveOverviewStyle('site')"><option value="line">Линия</option><option value="bar">Столбцы</option><option value="pie">Круговая</option></select></label><label class="chartInterval">Интервал <input id="siteIntervalQuick" type="number" min="1" max="86400" value="30" onchange="saveQuickInterval('site')" onkeydown="if(event.key==='Enter')this.blur()"> сек</label></div></div><div class="chartArea"><div id="legendOverview1" class="chartLegend"></div><canvas id="chartOverview1"></canvas></div></div>
+        <div class="panel chartPanel"><div class="panelHead"><h3>Мониторинг устройств</h3><div class="chartControls"><label class="chartStyleControl">Вид <select id="deviceOverviewStyle" onchange="saveOverviewStyle('device')"><option value="line">Линия</option><option value="bar">Столбцы</option><option value="pie">Круговая</option></select></label><label class="chartInterval">Интервал <input id="deviceIntervalQuick" type="number" min="1" max="86400" value="30" onchange="saveQuickInterval('device')" onkeydown="if(event.key==='Enter')this.blur()"> сек</label></div></div><div class="chartArea"><div id="legendOverview2" class="chartLegend"></div><canvas id="chartOverview2"></canvas></div></div>
+      </div>
+      <div class="grid two">
+        <div class="panel"><h3>События сайтов</h3><div id="eventPreviewSites"></div><a onclick="showPage('events')">Все события →</a></div>
+        <div class="panel"><h3>События устройств</h3><div id="eventPreviewDevices"></div><a onclick="showPage('events')">Все события →</a></div>
+      </div>
+      <div class="grid two">
+        <div class="panel"><h3>Топ сайтов по времени ответа</h3><div id="topResponse"></div><a onclick="showPage('graphs')">Перейти к графикам →</a></div>
+        <div class="panel"><h3>Топ устройств по ping</h3><div id="topDevices"></div><a onclick="showPage('graphs')">Перейти к графикам →</a></div>
+      </div>
+    </section>
+
+    <section id="sites" class="page"><h2>Сайты</h2><p>Введите название, адрес сайта и выберите цвет линии для графика.</p><div class="form siteForm"><input id="siteName" placeholder="Название, например: Мой сайт"><input id="siteUrl" placeholder="URL, например: https://site.ru"><input id="siteColor" type="color" value="#35f0ff" title="Цвет линии графика"><button onclick="addSite()">Добавить сайт</button></div><div id="sitesTable"></div></section>
+    <section id="routers" class="page"><h2>Устройства</h2><p>Добавь роутер, сервер, NAS, ПК или любой IP-узел. Можно указать несколько портов через запятую, например 22, 80, 443.</p><div class="networkScanBar"><div><b>Поиск устройств в локальной сети</b><span>Ручное сканирование частной IPv4-подсети.</span></div><button onclick="openNetworkScan()">Сканировать локальную сеть</button></div><div class="form siteForm deviceForm"><input id="routerName" placeholder="Название, например: MikroTik, VPS, NAS"><input id="routerAddr" placeholder="IP или адрес, например: 192.168.1.1"><input id="routerPort" type="text" inputmode="numeric" placeholder="Порты: 22, 80, 443"><select id="routerCheckType" title="Тип проверки"><option value="ping">Ping</option><option value="tcp">TCP-порты</option><option value="both">Ping + TCP</option></select><input id="routerColor" type="color" value="#7c5cff" title="Цвет линии графика"><button onclick="addRouter()">Добавить устройство</button></div><div id="routersTable"></div></section>
+    <section id="graphs" class="page"><div class="pageHead"><div><h2>Графики</h2></div><button onclick="openGraphModal()">+ Добавить график</button></div><div id="graphGrid" class="grid two"></div></section>
+    <section id="events" class="page"><div class="panel"><h2>События</h2>
+        <div class="rowActions wrap eventFilters">
+          <select id="eventHoursFilter" onchange="renderEvents()">
+            <option value="1">Последний час</option>
+            <option value="2">Последние 2 часа</option>
+            <option value="6">Последние 6 часов</option>
+            <option value="24" selected>Последние 24 часа</option>
+            <option value="168">Последняя неделя</option>
+            <option value="0">Все</option>
+          </select>
+          <select id="eventLevelFilter" onchange="renderEvents()">
+            <option value="important" selected>Только важные</option>
+            <option value="all">Все</option>
+            <option value="bad">Ошибки</option>
+            <option value="warn">Предупреждения</option>
+            <option value="recovered">Восстановления</option>
+            <option value="ok">Инфо</option>
+          </select>
+          <button class="danger" onclick="clearEvents()">Очистить события</button>
+        </div>
+        <div id="eventsList"></div></div></section>
+
+    <section id="settings" class="page"><h2>Настройки</h2><div id="settingsGrid" class="grid two">
+      <div class="panel"><h3>Оформление</h3>
+        <div class="grid two compact">
+          <div><label>Тема интерфейса</label><select id="setThemePreset">
+            <option value="dark">Тёмная</option>
+            <option value="light">Светлая</option>
+            <option value="purple">Фиолетовая</option>
+            <option value="blue">Синяя</option>
+            <option value="green">Зелёная</option>
+            <option value="custom">Пользовательская</option>
+          </select></div>
+          <div><label>Масштаб интерфейса</label><select id="setUiScale"><option value="0.72">72%</option><option value="0.75">75%</option><option value="0.9">90%</option><option value="1">100%</option><option value="1.1">110%</option><option value="1.25">125%</option></select></div>
+        </div>
+        <div class="grid two compact" id="customThemeColors">
+          <div><label>Основной цвет</label><input id="setThemeAccent" type="color" value="#7c5cff"></div>
+          <div><label>Цвет кнопок</label><input id="setThemeButton" type="color" value="#24457f"></div>
+          <div><label>Цвет успеха</label><input id="setThemeOk" type="color" value="#20e68a"></div>
+          <div><label>Цвет ошибки</label><input id="setThemeBad" type="color" value="#ff4d6d"></div>
+          <div><label>Фон приложения</label><input id="setThemeBg" type="color" value="#080d1b"></div>
+          <div><label>Фон карточек</label><input id="setThemePanel" type="color" value="#101a36"></div>
+        </div>
+        <p class="hint">Готовые темы применяются сразу. Цвета используются для пользовательской темы.</p>
+      </div>
+
+      <div class="panel"><h3>Веб-интерфейс</h3><label>Порт программы</label><div class="inlineControl"><input id="setPort" type="number" min="1024" max="65535" placeholder="8000"><button onclick="checkPortSetting()">Проверить</button></div><p class="hint">Адрес после запуска: <b id="currentAddress">http://127.0.0.1:8000</b></p><p class="hint">После смены порта перезапусти программу через RUN.cmd.</p></div>
+
+      <div class="panel"><h3>Мониторинг</h3>
+        <div class="grid two compact">
+          <div><label>Интервал проверки сайтов, сек</label><input id="setSiteInterval" type="number" min="1" placeholder="30"></div>
+          <div><label>Интервал проверки устройств, сек</label><input id="setDeviceInterval" type="number" min="1" placeholder="30"></div>
+        </div>
+        <div class="grid two compact">
+          <div><label>Таймаут сайта, сек</label><input id="setTimeout" type="number" min="1" placeholder="10"></div>
+        </div>
+        <label>Подтверждать проблему после проверок подряд</label><input id="setFailureConfirmChecks" type="number" min="1" max="10" placeholder="2">
+        <h4>Сайты</h4>
+        <div class="grid two compact">
+          <div><label>Предупреждение от, мс</label><input id="setSiteWarn" type="number" min="1" placeholder="1000"></div>
+          <div><label>Критично от, мс</label><input id="setSiteCrit" type="number" min="1" placeholder="3000"></div>
+        </div>
+        <h4>Устройства</h4>
+        <div class="grid two compact">
+          <div><label>Предупреждение от, мс</label><input id="setDeviceWarn" type="number" min="1" placeholder="150"></div>
+          <div><label>Критично от, мс</label><input id="setDeviceCrit" type="number" min="1" placeholder="300"></div>
+        </div>
+        <p class="hint">Статусы: 🟢 доступен, 🟡 медленно, 🔴 недоступен/критично.</p>
+      </div>
+
+      <div class="panel notifySettings"><h3>Уведомления Telegram</h3>
+        <div class="grid two compact">
+          <div><label>Telegram bot token</label><input id="setToken" placeholder="Введите токен бота"></div>
+          <div><label>Telegram chat ID</label><input id="setChat" placeholder="Введите chat ID"></div>
+        </div>
+        <div class="telegramCommandsBox">
+          <div class="grid two compact">
+            <div><label><input id="setTelegramCommandsEnabled" type="checkbox"> Разрешить ответные команды бота</label></div>
+            <div><label>Проверять новые команды каждые, сек</label><select id="setTelegramCommandInterval"><option value="3">3</option><option value="5" selected>5</option><option value="10">10</option><option value="30">30</option><option value="60">60</option></select></div>
+          </div>
+          <p class="hint">Бот отвечает только сохранённому Telegram chat ID. Команды: /status, /sites, /devices, /problems, /check, /help.</p>
+          <button type="button" onclick="testTelegramCommands()">Проверить команды бота</button>
+        </div>
+
+        <div class="grid two compact">
+          <div>
+            <h4>Сайты</h4>
+            <label>Недоступен</label><input id="setTgSiteDown" value="Сайт недоступен">
+            <label>Медленный ответ</label><input id="setTgSiteSlow" value="Сайт отвечает медленно">
+            <label>Восстановлен</label><input id="setTgSiteRecovered" value="Сайт снова доступен">
+            <label>Повторять ошибки каждые, минут</label>
+            <input id="setSiteRepeatMinutes" type="number" min="0" step="1" value="10">
+            <p class="hint">0 — не повторять. Восстановление отправляется один раз.</p>
+          </div>
+          <div>
+            <h4>Устройства</h4>
+            <label>Недоступно</label><input id="setTgDeviceDown" value="Устройство недоступно">
+            <label>Высокий ping</label><input id="setTgDeviceSlow" value="Высокий ping">
+            <label>Восстановлено</label><input id="setTgDeviceRecovered" value="Устройство снова доступно">
+            <label>Повторять ошибки каждые, минут</label>
+            <input id="setDeviceRepeatMinutes" type="number" min="0" step="1" value="10">
+            <p class="hint">0 — не повторять. Восстановление отправляется один раз.</p>
+          </div>
+        </div>
+
+        <div class="checksRow">
+          <label><input id="setNotifyDown" type="checkbox"> Недоступность</label>
+          <label><input id="setNotifySlow" type="checkbox"> Медленный ответ / высокий ping</label>
+          <label><input id="setNotifyRecovered" type="checkbox"> Восстановление</label>
+        </div>
+
+        <div class="actionRow">
+          <button onclick="testTelegram()">Отправить тест в Telegram</button>
+          <button type="button" onclick="resetTelegramTemplates()">Сбросить тексты</button>
+          <span class="hint">Ошибки повторяются по выбранной частоте. Восстановление приходит один раз.</span>
+        </div>
+      </div>
+
+      <div class="panel"><h3>Дополнительно</h3>
+        <label>Язык интерфейса</label><select id="setLanguage" onchange="changeLanguage(this.value)"><option value="ru">Русский</option><option value="en">English</option></select>
+        <label>Масштаб текста</label><select id="setTextScale"><option value="0.75">75%</option><option value="0.82">82%</option><option value="0.9">90%</option><option value="1">100%</option><option value="1.1">110%</option><option value="1.25">125%</option></select>
+        <label><input id="setMs" type="checkbox"> Показывать миллисекунды</label>
+        <label><input id="setOpen" type="checkbox"> Открывать браузер при запуске</label>
+      </div>
+
+      <div class="panel"><h3>Данные</h3><p>База лежит в <b>data/db.json</b></p><div class="rowActions wrap"><button onclick="exportConfig()">Экспорт конфигурации</button><button onclick="document.getElementById('importFile').click()">Импорт конфигурации</button><input id="importFile" type="file" accept="application/json,.json" style="display:none" onchange="importConfigFile(this)"></div><div class="dangerActions"><button class="danger" onclick="clearHistory()">Очистить историю графиков</button><button class="danger" onclick="resetAllData()">Удалить всё</button></div></div>
+    </div><button class="save" onclick="saveSettings()">Сохранить настройки</button></section>
+
+  </main>
+
+
+  <div class="modal" id="siteModal"><div class="modalBox small"><h3>Редактировать сайт</h3>
+    <input id="siteEditId" type="hidden">
+    <label>Название сайта</label><input id="siteEditName" placeholder="Например: Мой сайт">
+    <label>URL сайта</label><input id="siteEditUrl" placeholder="Например: https://site.ru">
+    <label>Цвет линии графика</label><input id="siteEditColor" class="colorInput" type="color" value="#35f0ff">
+    <div class="modalActions"><button onclick="closeSiteModal()">Отмена</button><button onclick="saveSiteFromModal()">Сохранить</button></div></div></div>
+  <div class="modal" id="routerModal"><div class="modalBox small"><h3>Редактировать устройство</h3>
+    <input id="routerEditId" type="hidden">
+    <label>Название устройства</label><input id="routerEditName" placeholder="Например: MikroTik, VPS, NAS">
+    <label>IP или адрес</label><input id="routerEditAddr" placeholder="Например: 192.168.1.1">
+    <label>Порты, необязательно</label><input id="routerEditPort" type="text" inputmode="numeric" placeholder="Например: 22, 80, 443">
+    <label>Тип проверки</label><select id="routerEditCheckType"><option value="ping">Ping</option><option value="tcp">TCP-порты</option><option value="both">Ping + TCP</option></select>
+    <label>Цвет линии графика</label><input id="routerEditColor" class="colorInput" type="color" value="#7c5cff">
+    <div class="modalActions"><button onclick="closeRouterModal()">Отмена</button><button onclick="saveRouterFromModal()">Сохранить</button></div></div></div>
+  <div class="modal" id="graphModal"><div class="modalBox"><h3 id="graphModalTitle">Добавить график</h3>
+    <input id="graphEditId" type="hidden">
+    <label>Название графика</label><input id="graphTitle" placeholder="Например: Пинг сервера">
+    <label>Что показывать</label><select id="graphType"><option value="site_response">Время ответа сайтов</option><option value="site_availability">Доступность сайтов</option><option value="router_ping">Пинг устройств</option><option value="site_codes">Коды ответа сайтов</option><option value="site_errors">Ошибки сайтов</option></select>
+    <div class="grid two compact"><div><label>Вид графика</label><select id="graphStyle"><option value="line">Линия</option><option value="bar">Столбцы</option><option value="pie">Круговая</option></select></div><div><label>Высота окна</label><select id="graphHeight"><option value="220">Компактный</option><option value="260">Обычный</option><option value="340">Большой</option></select></div></div>
+    <label>Комментарий / описание</label><input id="graphNote" placeholder="Например: Основной график по сайтам">
+    <p class="hint">После добавления сайта или устройства нажми кнопку ⟳, чтобы появились данные на графике.</p>
+    <div class="modalActions"><button onclick="closeGraphModal()">Отмена</button><button id="graphSaveBtn" onclick="saveGraphFromModal()">Добавить график</button></div></div></div>
+  <div class="modal" id="autoModal"><div class="modalBox small"><h3>Интервал автообновления</h3>
+    <label>Секунд</label><input id="autoCustomValue" type="number" min="5" max="3600" placeholder="Например: 45">
+    <p class="hint">Минимум 5 секунд, максимум 3600 секунд.</p>
+    <div class="modalActions"><button onclick="closeAutoModal()">Отмена</button><button onclick="saveCustomAutoRefresh()">Сохранить</button></div></div></div>
+  <div class="modal aboutModal" id="aboutModal" onclick="if(event.target===this)closeAboutModal()">
+    <div class="modalBox small aboutBox" role="dialog" aria-modal="true" aria-labelledby="aboutTitle">
+      <img src="/assets/moonfox-logo.png" class="aboutLogo" alt="Логотип MoonFox monitor">
+      <h3 id="aboutTitle">MoonFox monitor</h3>
+      <p>Следит за системой, пока ты спишь.</p>
+      <div class="aboutDeveloper">Разработчик: <b>ByValery</b></div>
+      <a class="aboutGithub" href="https://github.com/ByValery/MoonFox-monitor" target="_blank" rel="noopener noreferrer">GitHub: ByValery/MoonFox-monitor</a>
+      <a class="aboutGithub aboutStickers" href="https://t.me/addstickers/MoonFox7" target="_blank" rel="noopener noreferrer">Telegram: стикеры MoonFox</a>
+      <div class="modalActions"><button onclick="closeAboutModal()">Закрыть</button></div>
+    </div>
+  </div>
+  <div class="modal" id="diagnosticModal">
+    <div class="modalBox diagnosticBox" role="dialog" aria-modal="true" aria-labelledby="diagnosticTitle">
+      <div class="diagnosticHead"><div><h3 id="diagnosticTitle">Диагностика</h3><p id="diagnosticTarget" class="hint"></p></div><button class="modalClose" onclick="closeDiagnosticModal()" title="Закрыть">×</button></div>
+      <div class="diagnosticActions">
+        <button onclick="runDiagnostic('ping')">Ping</button>
+        <button onclick="runDiagnostic('dns')">DNS</button>
+        <button onclick="runDiagnostic('ssl')">SSL</button>
+        <button onclick="runDiagnostic('ports')">Порты</button>
+        <button onclick="runDiagnostic('trace')">Traceroute</button>
+        <button onclick="runDiagnostic('whois')">WHOIS / RDAP</button>
+      </div>
+      <div id="diagnosticResult" class="diagnosticResult">Выберите проверку.</div>
+      <div class="modalActions"><button onclick="closeDiagnosticModal()">Закрыть</button></div>
+    </div>
+  </div>
+  <div class="modal" id="networkScanModal" onclick="if(event.target===this)closeNetworkScan()">
+    <div class="modalBox networkScanBox" role="dialog" aria-modal="true" aria-labelledby="networkScanTitle">
+      <div class="diagnosticHead"><div><h3 id="networkScanTitle">Сканирование локальной сети</h3><p class="hint">Проверяются только адреса выбранной частной подсети /24.</p></div><button class="modalClose" onclick="closeNetworkScan()" title="Закрыть">×</button></div>
+      <div class="networkScanControls"><input id="networkSubnet" placeholder="192.168.1.0/24"><button id="networkScanButton" onclick="scanLocalNetwork()">Начать сканирование</button></div>
+      <div id="networkScanStatus" class="hint">Укажите подсеть и запустите поиск.</div>
+      <div id="networkScanResults" class="networkScanResults"></div>
+      <div class="modalActions"><button onclick="closeNetworkScan()">Закрыть</button></div>
+    </div>
+  </div>
+  <script src="/js/i18n.js?v=20260609-6"></script>
+  <script src="/js/app.js?v=20260609-5"></script>
+</body>
+</html>
