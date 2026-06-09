@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>MoonFox monitor</title>
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/style.css?v=20260609-6">
 </head>
 <body>
   <aside class="sidebar">
@@ -29,7 +29,7 @@
       <b class="miniTime" id="lastCheckSide">—</b>
       <small>Аптайм</small>
       <b class="miniTime" id="uptimeSide">0м</b>
-      <small>Версия 0.5.0</small></div>
+      <small>Версия 0.6.0</small></div>
   </aside>
 
   <main class="main">
@@ -46,16 +46,16 @@
       <div class="cards cards7">
         <div class="stat blue statWithFox">🌐<span>Сайтов</span><b id="stSites">0</b><small id="stSitesOk">Онлайн: 0</small><img class="statFox" src="/assets/fox-sites.png" alt="" aria-hidden="true"></div>
         <div class="stat green statWithFox">🖥️<span>Устройств</span><b id="stRouters">0</b><small id="stRoutersOk">Доступно: 0</small><img class="statFox statFoxDevices" src="/assets/fox-devices.png" alt="" aria-hidden="true"></div>
-        <div class="stat cyan statWithFox statAvailability">✅<span>Доступность</span><b id="stAvailability">—</b><small><span id="stSiteAvailability">Сайты: —</span><span id="stDeviceAvailability">Устройства: —</span></small><img class="statFox statFoxAvailability" src="/assets/fox-availability.png" alt="" aria-hidden="true"></div>
+        <div class="stat cyan statWithFox statAvailability">✅<span>Доступность</span><b id="stAvailability">—</b><small><span id="stSiteAvailability">Сайты: —</span><span id="stDeviceAvailability">Устройства: —</span></small><img id="availabilityFox" class="statFox statFoxAvailability" src="/assets/fox-availability.png" alt="" aria-hidden="true"></div>
         <div class="stat orange statWithFox statProblems">⚠️<span>Проблем</span><b id="stProblems">0</b><small><span id="stSiteProblems">Сайты: 0</span><span id="stDeviceProblems">Устройства: 0</span><span>Критичных: <span id="stCritical">0</span></span></small><img id="problemsFox" class="statFox statFoxProblems" src="/assets/fox-problems-ok.png" alt="" aria-hidden="true"></div>
         <div class="stat red statWithFox statLastProblem">🚨<span>Последняя проблема</span><b id="stLastProblemTime">Нет</b><small id="stLastProblemText">Нет проблем</small><img class="statFox statFoxLastProblem" src="/assets/fox-last-problem.png" alt="" aria-hidden="true"></div>
         <div class="stat purple statWithFox">⚡<span>Средний отклик</span><b id="stAvgResp">—</b><small id="stAvgNote">По сайтам</small><img class="statFox statFoxResponse" src="/assets/fox-response.png" alt="" aria-hidden="true"></div>
         <div class="stat blue statWithFox">🕒<span>Последнее обновление</span><b id="stLastUpdateCard">—</b><small id="stLastCheck">Проверка: —</small><img class="statFox statFoxLastUpdate" src="/assets/fox-last-update.png" alt="" aria-hidden="true"></div>
         <div class="stat orange notifyStat statWithFox" onclick="toggleNotifyPanel(event)">🔔<span>Уведомления</span><b id="stNotify">0</b><small>Активных</small><img id="notifyFox" class="statFox statFoxNotify" src="/assets/fox-notify-closed.png" alt="" aria-hidden="true"><div id="notifyPanel" class="notifyPanel"></div></div>
       </div>
-      <div class="grid two">
-        <div class="panel"><h3>Последние проверки сайтов</h3><div id="sitePreview"></div><a onclick="showPage('sites')">Перейти к сайтам →</a></div>
-        <div class="panel"><h3>Статус устройств</h3><div id="routerPreview"></div><a onclick="showPage('routers')">Перейти к устройствам →</a></div>
+      <div class="grid two" id="overviewPreviewGrid">
+        <div class="panel overviewPreviewPanel" id="sitePreviewPanel"><div class="panelHead"><h3>Последние проверки сайтов</h3><div class="previewControls"><label>Показывать <select id="sitePreviewCount" onchange="savePreviewCount('site')"><option>1</option><option>2</option><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></label></div></div><div id="sitePreview"></div><a onclick="showPage('sites')">Перейти к сайтам →</a></div>
+        <div class="panel overviewPreviewPanel" id="routerPreviewPanel"><div class="panelHead"><h3>Статус устройств</h3><div class="previewControls"><label>Показывать <select id="devicePreviewCount" onchange="savePreviewCount('device')"><option>1</option><option>2</option><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></label></div></div><div id="routerPreview"></div><a onclick="showPage('routers')">Перейти к устройствам →</a></div>
       </div>
       <div class="grid two">
         <div class="panel chartPanel"><div class="panelHead"><h3>Мониторинг сайтов</h3><div class="chartControls"><label class="chartStyleControl">Вид <select id="siteOverviewStyle" onchange="saveOverviewStyle('site')"><option value="line">Линия</option><option value="bar">Столбцы</option><option value="pie">Круговая</option></select></label><label class="chartInterval">Интервал <input id="siteIntervalQuick" type="number" min="1" max="86400" value="30" onchange="saveQuickInterval('site')" onkeydown="if(event.key==='Enter')this.blur()"> сек</label></div></div><div class="chartArea"><div id="legendOverview1" class="chartLegend"></div><canvas id="chartOverview1"></canvas></div></div>
@@ -72,7 +72,7 @@
     </section>
 
     <section id="sites" class="page"><h2>Сайты</h2><p>Введите название, адрес сайта и выберите цвет линии для графика.</p><div class="form siteForm"><input id="siteName" placeholder="Название, например: Мой сайт"><input id="siteUrl" placeholder="URL, например: https://site.ru"><input id="siteColor" type="color" value="#35f0ff" title="Цвет линии графика"><button onclick="addSite()">Добавить сайт</button></div><div id="sitesTable"></div></section>
-    <section id="routers" class="page"><h2>Устройства</h2><p>Добавь роутер, сервер, NAS, ПК или любой IP-узел. Порт необязательный: нужен для проверки службы, например 22, 80, 443, 3389.</p><div class="form siteForm deviceForm"><input id="routerName" placeholder="Название, например: MikroTik, VPS, NAS"><input id="routerAddr" placeholder="IP или адрес, например: 192.168.1.1"><input id="routerPort" type="number" min="1" max="65535" placeholder="Порт, необязательно"><select id="routerCheckType" title="Тип проверки"><option value="ping">Ping</option><option value="tcp">TCP-порт</option><option value="both">Ping + TCP</option></select><input id="routerColor" type="color" value="#7c5cff" title="Цвет линии графика"><button onclick="addRouter()">Добавить устройство</button></div><div id="routersTable"></div></section>
+    <section id="routers" class="page"><h2>Устройства</h2><p>Добавь роутер, сервер, NAS, ПК или любой IP-узел. Можно указать несколько портов через запятую, например 22, 80, 443.</p><div class="networkScanBar"><div><b>Поиск устройств в локальной сети</b><span>Ручное сканирование частной IPv4-подсети.</span></div><button onclick="openNetworkScan()">Сканировать локальную сеть</button></div><div class="form siteForm deviceForm"><input id="routerName" placeholder="Название, например: MikroTik, VPS, NAS"><input id="routerAddr" placeholder="IP или адрес, например: 192.168.1.1"><input id="routerPort" type="text" inputmode="numeric" placeholder="Порты: 22, 80, 443"><select id="routerCheckType" title="Тип проверки"><option value="ping">Ping</option><option value="tcp">TCP-порты</option><option value="both">Ping + TCP</option></select><input id="routerColor" type="color" value="#7c5cff" title="Цвет линии графика"><button onclick="addRouter()">Добавить устройство</button></div><div id="routersTable"></div></section>
     <section id="graphs" class="page"><div class="pageHead"><div><h2>Графики</h2></div><button onclick="openGraphModal()">+ Добавить график</button></div><div id="graphGrid" class="grid two"></div></section>
     <section id="events" class="page"><div class="panel"><h2>События</h2>
         <div class="rowActions wrap eventFilters">
@@ -149,6 +149,14 @@
           <div><label>Telegram bot token</label><input id="setToken" placeholder="Введите токен бота"></div>
           <div><label>Telegram chat ID</label><input id="setChat" placeholder="Введите chat ID"></div>
         </div>
+        <div class="telegramCommandsBox">
+          <div class="grid two compact">
+            <div><label><input id="setTelegramCommandsEnabled" type="checkbox"> Разрешить ответные команды бота</label></div>
+            <div><label>Проверять новые команды каждые, сек</label><select id="setTelegramCommandInterval"><option value="3">3</option><option value="5" selected>5</option><option value="10">10</option><option value="30">30</option><option value="60">60</option></select></div>
+          </div>
+          <p class="hint">Бот отвечает только сохранённому Telegram chat ID. Команды: /status, /sites, /devices, /problems, /check, /help.</p>
+          <button type="button" onclick="testTelegramCommands()">Проверить команды бота</button>
+        </div>
 
         <div class="grid two compact">
           <div>
@@ -207,8 +215,8 @@
     <input id="routerEditId" type="hidden">
     <label>Название устройства</label><input id="routerEditName" placeholder="Например: MikroTik, VPS, NAS">
     <label>IP или адрес</label><input id="routerEditAddr" placeholder="Например: 192.168.1.1">
-    <label>Порт, необязательно</label><input id="routerEditPort" type="number" min="1" max="65535" placeholder="Например: 443">
-    <label>Тип проверки</label><select id="routerEditCheckType"><option value="ping">Ping</option><option value="tcp">TCP-порт</option><option value="both">Ping + TCP</option></select>
+    <label>Порты, необязательно</label><input id="routerEditPort" type="text" inputmode="numeric" placeholder="Например: 22, 80, 443">
+    <label>Тип проверки</label><select id="routerEditCheckType"><option value="ping">Ping</option><option value="tcp">TCP-порты</option><option value="both">Ping + TCP</option></select>
     <label>Цвет линии графика</label><input id="routerEditColor" class="colorInput" type="color" value="#7c5cff">
     <div class="modalActions"><button onclick="closeRouterModal()">Отмена</button><button onclick="saveRouterFromModal()">Сохранить</button></div></div></div>
   <div class="modal" id="graphModal"><div class="modalBox"><h3 id="graphModalTitle">Добавить график</h3>
@@ -230,10 +238,35 @@
       <p>Следит за системой, пока ты спишь.</p>
       <div class="aboutDeveloper">Разработчик: <b>ByValery</b></div>
       <a class="aboutGithub" href="https://github.com/ByValery/MoonFox-monitor" target="_blank" rel="noopener noreferrer">GitHub: ByValery/MoonFox-monitor</a>
+      <a class="aboutGithub aboutStickers" href="https://t.me/addstickers/MoonFox7" target="_blank" rel="noopener noreferrer">Telegram: стикеры MoonFox</a>
       <div class="modalActions"><button onclick="closeAboutModal()">Закрыть</button></div>
     </div>
   </div>
-  <script src="/js/i18n.js"></script>
-  <script src="/js/app.js"></script>
+  <div class="modal" id="diagnosticModal">
+    <div class="modalBox diagnosticBox" role="dialog" aria-modal="true" aria-labelledby="diagnosticTitle">
+      <div class="diagnosticHead"><div><h3 id="diagnosticTitle">Диагностика</h3><p id="diagnosticTarget" class="hint"></p></div><button class="modalClose" onclick="closeDiagnosticModal()" title="Закрыть">×</button></div>
+      <div class="diagnosticActions">
+        <button onclick="runDiagnostic('ping')">Ping</button>
+        <button onclick="runDiagnostic('dns')">DNS</button>
+        <button onclick="runDiagnostic('ssl')">SSL</button>
+        <button onclick="runDiagnostic('ports')">Порты</button>
+        <button onclick="runDiagnostic('trace')">Traceroute</button>
+        <button onclick="runDiagnostic('whois')">WHOIS / RDAP</button>
+      </div>
+      <div id="diagnosticResult" class="diagnosticResult">Выберите проверку.</div>
+      <div class="modalActions"><button onclick="closeDiagnosticModal()">Закрыть</button></div>
+    </div>
+  </div>
+  <div class="modal" id="networkScanModal" onclick="if(event.target===this)closeNetworkScan()">
+    <div class="modalBox networkScanBox" role="dialog" aria-modal="true" aria-labelledby="networkScanTitle">
+      <div class="diagnosticHead"><div><h3 id="networkScanTitle">Сканирование локальной сети</h3><p class="hint">Проверяются только адреса выбранной частной подсети /24.</p></div><button class="modalClose" onclick="closeNetworkScan()" title="Закрыть">×</button></div>
+      <div class="networkScanControls"><input id="networkSubnet" placeholder="192.168.1.0/24"><button id="networkScanButton" onclick="scanLocalNetwork()">Начать сканирование</button></div>
+      <div id="networkScanStatus" class="hint">Укажите подсеть и запустите поиск.</div>
+      <div id="networkScanResults" class="networkScanResults"></div>
+      <div class="modalActions"><button onclick="closeNetworkScan()">Закрыть</button></div>
+    </div>
+  </div>
+  <script src="/js/i18n.js?v=20260609-6"></script>
+  <script src="/js/app.js?v=20260609-5"></script>
 </body>
 </html>

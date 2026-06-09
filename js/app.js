@@ -3,6 +3,37 @@ let state={sites:[],routers:[],history:[],events:[],graphs:[],settings:{}};let a
 const APP_TITLE='MoonFox monitor';
 const APP_SUBTITLE='Следит за системой, пока ты спишь.';
 function tr(value){return window.I18N?I18N.text(value):value}
+function availabilityFoxSource(percent,total){
+  if(!total||percent>=100)return '/assets/fox-availability.png';
+  if(percent<=0)return '/assets/fox-availability-0.png';
+  if(percent<=20)return '/assets/fox-availability-20.png';
+  if(percent<=40)return '/assets/fox-availability-40.png';
+  if(percent<=60)return '/assets/fox-availability-60.png';
+  return '/assets/fox-availability-80.png';
+}
+function previewCount(kind){
+  try{
+    let value=Number(localStorage.getItem('moonfox.previewCount.'+kind)||5);
+    return Number.isInteger(value)&&value>=1&&value<=10?value:5;
+  }catch(e){return 5}
+}
+function savePreviewCount(kind){
+  let id=kind==='site'?'sitePreviewCount':'devicePreviewCount';
+  let value=Math.max(1,Math.min(10,Number($(id)?.value||5)));
+  try{localStorage.setItem('moonfox.previewCount.'+kind,String(value))}catch(e){}
+  renderTables();
+}
+function orderButtons(kind,id,index,total){
+  return `<span class="orderActions"><button class="orderButton" onclick="moveMonitoredObject('${kind}','${id}','up')" title="${tr('Поднять выше')}" aria-label="${tr('Поднять выше')}" ${index===0?'disabled':''}>↑</button><button class="orderButton" onclick="moveMonitoredObject('${kind}','${id}','down')" title="${tr('Опустить ниже')}" aria-label="${tr('Опустить ниже')}" ${index>=total-1?'disabled':''}>↓</button></span>`;
+}
+function previewDeleteButton(kind,id){
+  let handler=kind==='site'?'delSite':'delRouter';
+  return `<button class="orderButton previewDeleteButton" onclick="${handler}('${id}')" title="${tr('Удалить')}" aria-label="${tr('Удалить')}">×</button>`;
+}
+async function moveMonitoredObject(kind,id,direction){
+  await api(kind==='site'?'/api/site/move':'/api/router/move',{id,direction});
+  await load();
+}
 async function changeLanguage(language){
   state.settings=state.settings||{};
   state.settings.language=language==='en'?'en':'ru';
@@ -66,6 +97,7 @@ function hookFormDirtyFlags(){
 
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'&&$('aboutModal')?.classList.contains('show'))closeAboutModal();
+  if(e.key==='Escape'&&$('diagnosticModal')?.classList.contains('show'))closeDiagnosticModal();
 });
 
 function organizeSettingsColumns(){
@@ -205,7 +237,7 @@ function renderTopResponse(){
   el.innerHTML=sites.map(s=>`<div class="topLine"><span>${esc(s.name)}</span><b>${Number(s.response||0)} мс</b></div>`).join('');
 }
 
-function render(){let s=state.settings||{};s.siteOverviewStyle=getSavedOverviewStyle('site')||s.siteOverviewStyle||'line';s.deviceOverviewStyle=getSavedOverviewStyle('device')||s.deviceOverviewStyle||'line';ensureAutoOption(Number(s.autoRefresh||0));$('autoSel').value=String(Number(s.autoRefresh||0));startAutoRefresh(Number(s.autoRefresh||0));$('brandSub').textContent=APP_SUBTITLE;document.title=APP_TITLE;if($('siteIntervalQuick')&&document.activeElement!==$('siteIntervalQuick'))$('siteIntervalQuick').value=Number(s.siteInterval||s.interval||30);if($('deviceIntervalQuick')&&document.activeElement!==$('deviceIntervalQuick'))$('deviceIntervalQuick').value=Number(s.deviceInterval||s.interval||30);if($('siteOverviewStyle'))$('siteOverviewStyle').value=s.siteOverviewStyle;if($('deviceOverviewStyle'))$('deviceOverviewStyle').value=s.deviceOverviewStyle;let sites=state.sites||[],routers=state.routers||[];let siteOk=sites.filter(x=>x.status==='OK').length,routerOk=routers.filter(x=>x.status==='OK').length;let siteWarn=sites.filter(x=>x.status==='SLOW').length,routerWarn=routers.filter(x=>x.status==='SLOW').length;let siteAvailable=siteOk+siteWarn,deviceAvailable=routerOk+routerWarn;let total=sites.length+routers.length,availableTotal=siteAvailable+deviceAvailable;let siteAvailability=sites.length?Math.round((siteAvailable/sites.length)*100):null,deviceAvailability=routers.length?Math.round((deviceAvailable/routers.length)*100):null;let siteProblems=sites.filter(isProblem).length,deviceProblems=routers.filter(isProblem).length;let problemObjects=[...sites,...routers].filter(isProblem);let problems=problemObjects.length;let activeNotices=[...sites.filter(isProblem).map(x=>({time:x.checked||'',text:`Сайт «${x.name}»: ${statusText(x.status)}`})),...routers.filter(isProblem).map(x=>({time:x.checked||'',text:`Устройство «${x.name}»: ${statusText(x.status)}`}))];let checked=[...sites,...routers].map(x=>x.checked).filter(x=>x&&x!=='-'&&x!=='—');let lastCheck=checked.length?checked[checked.length-1]:'—';let resp=sites.filter(x=>(x.status==='OK'||x.status==='SLOW')&&Number(x.response)>0).map(x=>Number(x.response));let avg=resp.length?Math.round(resp.reduce((a,b)=>a+b,0)/resp.length):0;let availability=total?Math.round((availableTotal/total)*100):0;$('stSites').textContent=sites.length;$('stSitesOk').textContent='Онлайн: '+siteOk+(siteWarn?`, медленно: ${siteWarn}`:'');$('stRouters').textContent=routers.length;$('stRoutersOk').textContent='Доступно: '+routerOk+(routerWarn?`, медленно: ${routerWarn}`:'');$('stProblems').textContent=problems;if($('stSiteProblems'))$('stSiteProblems').textContent='Сайты: '+siteProblems;if($('stDeviceProblems'))$('stDeviceProblems').textContent='Устройства: '+deviceProblems;if($('problemsFox'))$('problemsFox').src=problems>0?'/assets/fox-problems-bad.png':'/assets/fox-problems-ok.png';if($('stCritical'))$('stCritical').textContent=[...sites,...routers].filter(x=>x.status==='BAD').length;$('stAvailability').textContent=total?availability+'%':'—';if($('stSiteAvailability'))$('stSiteAvailability').textContent='Сайты: '+(siteAvailability===null?'—':siteAvailability+'%');if($('stDeviceAvailability'))$('stDeviceAvailability').textContent='Устройства: '+(deviceAvailability===null?'—':deviceAvailability+'%');$('stAvgResp').textContent=avg?avg+' мс':'—';$('stLastCheck').textContent='Проверка: '+lastCheck;if($('stLastUpdateCard'))$('stLastUpdateCard').textContent=lastCheck==='—'?'—':lastCheck;if($('stNotify'))$('stNotify').textContent=problems;if($('lastCheckSide'))$('lastCheckSide').textContent=lastCheck;let badEvents=(state.events||[]).filter(e=>e.level==='bad'||e.level==='warn');if($('stLastProblemTime')){$('stLastProblemTime').textContent=badEvents[0]?badEvents[0].time:'Нет';$('stLastProblemText').textContent=badEvents[0]?eventText(badEvents[0].text):'Нет проблем'}try{renderNotifyPanel(activeNotices)}catch(e){console.error(e)};applyScale();applyTheme();renderTables();renderEvents();renderMiniEventsSplit();if(!shouldProtectForms())renderSettings();if(!isModalOpen())renderGraphs();try{renderEventPreview()}catch(e){console.error(e)};try{renderTopResponse()}catch(e){console.error(e)};try{renderTopDevices()}catch(e){console.error(e)}}
+function render(){let s=state.settings||{};s.siteOverviewStyle=getSavedOverviewStyle('site')||s.siteOverviewStyle||'line';s.deviceOverviewStyle=getSavedOverviewStyle('device')||s.deviceOverviewStyle||'line';ensureAutoOption(Number(s.autoRefresh||0));$('autoSel').value=String(Number(s.autoRefresh||0));startAutoRefresh(Number(s.autoRefresh||0));$('brandSub').textContent=APP_SUBTITLE;document.title=APP_TITLE;if($('siteIntervalQuick')&&document.activeElement!==$('siteIntervalQuick'))$('siteIntervalQuick').value=Number(s.siteInterval||s.interval||30);if($('deviceIntervalQuick')&&document.activeElement!==$('deviceIntervalQuick'))$('deviceIntervalQuick').value=Number(s.deviceInterval||s.interval||30);if($('siteOverviewStyle'))$('siteOverviewStyle').value=s.siteOverviewStyle;if($('deviceOverviewStyle'))$('deviceOverviewStyle').value=s.deviceOverviewStyle;if($('sitePreviewCount'))$('sitePreviewCount').value=String(previewCount('site'));if($('devicePreviewCount'))$('devicePreviewCount').value=String(previewCount('device'));let sites=state.sites||[],routers=state.routers||[];let siteOk=sites.filter(x=>x.status==='OK').length,routerOk=routers.filter(x=>x.status==='OK').length;let siteWarn=sites.filter(x=>x.status==='SLOW').length,routerWarn=routers.filter(x=>x.status==='SLOW').length;let siteAvailable=siteOk+siteWarn,deviceAvailable=routerOk+routerWarn;let total=sites.length+routers.length,availableTotal=siteAvailable+deviceAvailable;let siteAvailability=sites.length?Math.round((siteAvailable/sites.length)*100):null,deviceAvailability=routers.length?Math.round((deviceAvailable/routers.length)*100):null;let siteProblems=sites.filter(isProblem).length,deviceProblems=routers.filter(isProblem).length;let problemObjects=[...sites,...routers].filter(isProblem);let problems=problemObjects.length;let activeNotices=[...sites.filter(isProblem).map(x=>({time:x.checked||'',text:`Сайт «${x.name}»: ${statusText(x.status)}`})),...routers.filter(isProblem).map(x=>({time:x.checked||'',text:`Устройство «${x.name}»: ${statusText(x.status)}`}))];let checked=[...sites,...routers].map(x=>x.checked).filter(x=>x&&x!=='-'&&x!=='—');let lastCheck=checked.length?checked[checked.length-1]:'—';let resp=sites.filter(x=>(x.status==='OK'||x.status==='SLOW')&&Number(x.response)>0).map(x=>Number(x.response));let avg=resp.length?Math.round(resp.reduce((a,b)=>a+b,0)/resp.length):0;let availability=total?Math.round((availableTotal/total)*100):0;$('stSites').textContent=sites.length;$('stSitesOk').textContent='Онлайн: '+siteOk+(siteWarn?`, медленно: ${siteWarn}`:'');$('stRouters').textContent=routers.length;$('stRoutersOk').textContent='Доступно: '+routerOk+(routerWarn?`, медленно: ${routerWarn}`:'');$('stProblems').textContent=problems;if($('stSiteProblems'))$('stSiteProblems').textContent='Сайты: '+siteProblems;if($('stDeviceProblems'))$('stDeviceProblems').textContent='Устройства: '+deviceProblems;if($('problemsFox'))$('problemsFox').src=problems>0?'/assets/fox-problems-bad.png':'/assets/fox-problems-ok.png';if($('stCritical'))$('stCritical').textContent=[...sites,...routers].filter(x=>x.status==='BAD').length;$('stAvailability').textContent=total?availability+'%':'—';if($('availabilityFox'))$('availabilityFox').src=availabilityFoxSource(availability,total);if($('stSiteAvailability'))$('stSiteAvailability').textContent='Сайты: '+(siteAvailability===null?'—':siteAvailability+'%');if($('stDeviceAvailability'))$('stDeviceAvailability').textContent='Устройства: '+(deviceAvailability===null?'—':deviceAvailability+'%');$('stAvgResp').textContent=avg?avg+' мс':'—';$('stLastCheck').textContent='Проверка: '+lastCheck;if($('stLastUpdateCard'))$('stLastUpdateCard').textContent=lastCheck==='—'?'—':lastCheck;if($('stNotify'))$('stNotify').textContent=problems;if($('lastCheckSide'))$('lastCheckSide').textContent=lastCheck;let badEvents=(state.events||[]).filter(e=>e.level==='bad'||e.level==='warn');if($('stLastProblemTime')){$('stLastProblemTime').textContent=badEvents[0]?badEvents[0].time:'Нет';$('stLastProblemText').textContent=badEvents[0]?eventText(badEvents[0].text):'Нет проблем'}try{renderNotifyPanel(activeNotices)}catch(e){console.error(e)};applyScale();applyTheme();renderTables();renderEvents();renderMiniEventsSplit();if(!shouldProtectForms())renderSettings();if(!isModalOpen())renderGraphs();try{renderEventPreview()}catch(e){console.error(e)};try{renderTopResponse()}catch(e){console.error(e)};try{renderTopDevices()}catch(e){console.error(e)}}
 
 function applyScale(){
   let s=state.settings||{};
@@ -214,6 +246,20 @@ function applyScale(){
 }
 function table(rows,heads){return `<table class="table"><thead><tr>${heads.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows||''}</tbody></table>`}
 function renderTables(){let sites=state.sites||[],routers=state.routers||[];let siteRows=sites.map(x=>`<tr><td><span class="colorDot" style="background:${esc(x.color||'#35f0ff')}"></span>${esc(x.name)}</td><td>${esc(x.url)}</td><td class="${statusClass(x.status)}">${statusText(x.status)}</td><td>${x.code||0}</td><td>${x.response||0} мс</td><td>${calcUptime('site',x)}</td><td>${esc(lastFailure(x))}</td><td>${x.checked||'-'}</td><td><div class="rowActions"><button class="edit" onclick="editSite('${x.id}')">Редактировать</button><button class="del" onclick="delSite('${x.id}')">Удалить</button></div></td></tr>`).join('');if($('sitesTable'))$('sitesTable').innerHTML=table(siteRows,['Название','URL','Статус','Код','Ответ','Аптайм','Последний сбой','Проверка','Действия']);if($('sitePreview'))$('sitePreview').innerHTML=table(sites.slice(0,4).map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.url)}</td><td class="${statusClass(x.status)}">${statusText(x.status)}</td><td>${x.response||0} мс</td><td>${calcUptime('site',x)}</td></tr>`).join(''),['Название','URL','Статус','Ответ','Аптайм']);let routerRows=routers.map(x=>`<tr><td><span class="colorDot" style="background:${esc(x.color||'#7c5cff')}"></span>${esc(x.name)}</td><td>${esc(x.address)}</td><td>${x.port?esc(x.port):'—'}</td><td>${checkTypeText(x.checkType)}</td><td class="${statusClass(x.status)}">${statusText(x.status)}</td><td class="${x.port&&!x.portOk?'statusBAD':'statusOK'}">${portStatusText(x)}</td><td>${x.ping||0} мс</td><td>${calcUptime('router',x)}</td><td>${esc(lastFailure(x))}</td><td>${x.checked||'-'}</td><td><div class="rowActions"><button class="edit" onclick="editRouter('${x.id}')">Редактировать</button><button class="del" onclick="delRouter('${x.id}')">Удалить</button></div></td></tr>`).join('');if($('routersTable'))$('routersTable').innerHTML=table(routerRows,['Название','Адрес','Порт','Проверка','Статус','Порт','Ping','Аптайм','Последний сбой','Проверка','Действия']);if($('routerPreview'))$('routerPreview').innerHTML=table(routers.slice(0,4).map(x=>`<tr><td><span class="colorDot" style="background:${esc(x.color||'#7c5cff')}"></span>${esc(x.name)}</td><td>${esc(x.address)}</td><td class="${statusClass(x.status)}">${statusText(x.status)}</td><td>${x.ping||0} мс</td><td>${calcUptime('router',x)}</td></tr>`).join(''),['Название','Адрес','Статус','Ping','Аптайм'])}
+function sslSummary(x){let s=x&&x.ssl;if(!s)return '—';if(!s.ok)return `<span class="statusBAD">${esc(s.error||'Ошибка SSL')}</span>`;let cls=Number(s.daysLeft)<=14?'statusBAD':Number(s.daysLeft)<=30?'statusSLOW':'statusOK';return `<span class="${cls}">${esc(s.validTo)} (${Number(s.daysLeft)} дн.)</span>`}
+function compactSslSummary(x){let s=x&&x.ssl;if(!s)return '—';if(!s.ok)return `<span class="statusBAD previewEllipsis" title="${esc(s.error||'Ошибка SSL')}">Ошибка</span>`;let cls=Number(s.daysLeft)<=14?'statusBAD':Number(s.daysLeft)<=30?'statusSLOW':'statusOK';return `<span class="${cls}" title="${esc(s.issuer||'')}">${Number(s.daysLeft)} дн.</span>`}
+function compactDnsSummary(x){let dns=x.dns||[];return dns.length?`<span class="previewEllipsis" title="${esc(dns.join(', '))}">${esc(dns[0])}${dns.length>1?' +'+(dns.length-1):''}</span>`:'—'}
+function pingSummary(x){if(x&&x.pingSynthetic)return '<span class="statusSLOW" title="DNS использует Fake-IP 198.18.0.0/15">через прокси</span>';let ms=Number(x&&x.ping||0);return ms===0?'<span title="Ответ быстрее 1 миллисекунды">&lt;1 мс</span>':ms+' мс'}
+function portsSummary(x){let results=x.portResults||[];if(results.length)return results.map(p=>`<span class="${p.open?'statusOK':'statusBAD'}">${p.port}</span>`).join(', ');let ports=(x.ports&&x.ports.length?x.ports:[x.port].filter(Boolean));return ports.length?ports.join(', '):'—'}
+renderTables=function(){
+  let sites=state.sites||[],routers=state.routers||[];
+  let siteRows=sites.map((x,i)=>`<tr><td><span class="colorDot" style="background:${esc(x.color||'#35f0ff')}"></span>${esc(x.name)}</td><td>${esc(x.url)}</td><td class="${statusClass(x.status)}">${statusText(x.status)}</td><td>${x.code||0}</td><td>${x.response||0} мс</td><td>${pingSummary(x)}</td><td>${esc((x.dns||[]).join(', ')||'—')}</td><td>${sslSummary(x)}</td><td>${calcUptime('site',x)}</td><td><div class="rowActions wrap">${orderButtons('site',x.id,i,sites.length)}<button class="edit" onclick="openDiagnosticModal('site','${x.id}')">Диагностика</button><button class="edit" onclick="editSite('${x.id}')">Редактировать</button><button class="del" onclick="delSite('${x.id}')">Удалить</button></div></td></tr>`).join('');
+  if($('sitesTable'))$('sitesTable').innerHTML=table(siteRows,['Название','URL','Статус','HTTP','Ответ','Ping','DNS','SSL','Аптайм','Действия']);
+  if($('sitePreview'))$('sitePreview').innerHTML=table(sites.slice(0,previewCount('site')).map((x,i)=>`<tr><td><span class="previewName"><span class="colorDot" style="background:${esc(x.color||'#35f0ff')}"></span><span class="previewEllipsis" title="${esc(x.url)}">${esc(x.name)}</span></span></td><td class="${statusClass(x.status)}">${statusText(x.status)}</td><td>${x.response||0} мс</td><td>${pingSummary(x)}</td><td>${compactDnsSummary(x)}</td><td>${compactSslSummary(x)}</td><td><div class="previewRowActions"><button class="miniAction" onclick="openDiagnosticModal('site','${x.id}')">Диагностика</button>${orderButtons('site',x.id,i,sites.length)}${previewDeleteButton('site',x.id)}</div></td></tr>`).join(''),['Название','Статус','HTTP','Ping','DNS','SSL','Действия']);
+  let routerRows=routers.map((x,i)=>`<tr><td><span class="colorDot" style="background:${esc(x.color||'#7c5cff')}"></span>${esc(x.name)}</td><td>${esc(x.address)}</td><td>${portsSummary(x)}</td><td>${checkTypeText(x.checkType)}</td><td class="${statusClass(x.status)}">${statusText(x.status)}</td><td>${x.ping||0} мс</td><td>${calcUptime('router',x)}</td><td><div class="rowActions wrap">${orderButtons('router',x.id,i,routers.length)}<button class="edit" onclick="openDiagnosticModal('router','${x.id}')">Диагностика</button><button class="edit" onclick="editRouter('${x.id}')">Редактировать</button><button class="del" onclick="delRouter('${x.id}')">Удалить</button></div></td></tr>`).join('');
+  if($('routersTable'))$('routersTable').innerHTML=table(routerRows,['Название','Адрес','Порты','Проверка','Статус','Ping','Аптайм','Действия']);
+  if($('routerPreview'))$('routerPreview').innerHTML=table(routers.slice(0,previewCount('device')).map((x,i)=>`<tr><td><span class="colorDot" style="background:${esc(x.color||'#7c5cff')}"></span>${esc(x.name)}</td><td>${esc(x.address)}</td><td class="${statusClass(x.status)}">${statusText(x.status)}</td><td>${x.ping||0} мс</td><td>${portsSummary(x)}</td><td><div class="previewRowActions"><button class="miniAction" onclick="openDiagnosticModal('router','${x.id}')">Диагностика</button>${orderButtons('router',x.id,i,routers.length)}${previewDeleteButton('router',x.id)}</div></td></tr>`).join(''),['Название','Адрес','Статус','Ping','Порты','Действия']);
+}
 function eventText(t){return tr(String(t||'').replace(/^Site /,'Сайт ').replace(/^Device /,'Устройство ').replace(/ available \(\d+\)/,' доступен').replace(/ available/,' доступен').replace(/ unavailable/,' недоступен'))}
 function levelName(l){return tr(l==='bad'?'Ошибка':l==='warn'?'Предупреждение':l==='recovered'?'Восстановлено':'Инфо')}
 function parseEventDate(e){
@@ -268,6 +314,8 @@ function renderSettings(){
   ['setThemeAccent','setThemeButton','setThemeOk','setThemeBad','setThemeBg','setThemePanel'].forEach(id=>{if($(id))$(id).oninput=previewThemeFromForm});
   if($('setUiScale'))$('setUiScale').value=String(s.uiScale||0.9);$('setTextScale').value=String(s.textScale||1);$('setMs').checked=!!s.showMs;$('setOpen').checked=!!s.autoOpen;
   $('setToken').value=s.telegramToken||'';$('setChat').value=s.telegramChat||'';
+  if($('setTelegramCommandsEnabled'))$('setTelegramCommandsEnabled').checked=s.telegramCommandsEnabled===true;
+  if($('setTelegramCommandInterval'))$('setTelegramCommandInterval').value=String(s.telegramCommandInterval||5);
   if($('setNotifyDown'))$('setNotifyDown').checked=s.notifyDown!==false;
   if($('setNotifySlow'))$('setNotifySlow').checked=s.notifySlow!==false;
   if($('setNotifyRecovered'))$('setNotifyRecovered').checked=s.notifyRecovered!==false;
@@ -285,10 +333,51 @@ async function addSite(){let name=$('siteName').value.trim(),url=$('siteUrl').va
 function editSite(id){let x=state.sites.find(a=>a.id===id);if(!x)return;$('siteEditId').value=x.id;$('siteEditName').value=x.name||'';$('siteEditUrl').value=x.url||'';$('siteEditColor').value=x.color||'#35f0ff';lockEdit();$('siteModal').classList.add('show')}
 function closeSiteModal(){unlockEdit();$('siteModal').classList.remove('show')}
 async function saveSiteFromModal(){let id=$('siteEditId').value,name=$('siteEditName').value.trim(),url=$('siteEditUrl').value.trim(),color=$('siteEditColor').value||'#35f0ff';if(!name||!url)return alert('Заполни название и URL сайта');await api('/api/site/update',{id,name,url,color});unlockEdit();closeSiteModal();await checkNow()}async function delSite(id){if(confirm('Удалить сайт?')){await api('/api/site/delete',{id});await load()}}
-async function addRouter(){let name=$('routerName').value.trim(),address=$('routerAddr').value.trim(),port=Number($('routerPort')?$('routerPort').value||0:0),checkType=$('routerCheckType')?$('routerCheckType').value:'ping',color=$('routerColor').value||'#7c5cff';if(!name||!address)return alert('Заполни название и IP/адрес');if(port<0||port>65535)return alert('Порт должен быть от 1 до 65535');if(checkType!=='ping'&&!port)return alert('Для проверки TCP укажи порт');await api('/api/router/add',{name,address,port,checkType,color});$('routerName').value='';$('routerAddr').value='';if($('routerPort'))$('routerPort').value='';await load()}
-function editRouter(id){let x=state.routers.find(a=>a.id===id);if(!x)return;$('routerEditId').value=x.id;$('routerEditName').value=x.name||'';$('routerEditAddr').value=x.address||'';if($('routerEditPort'))$('routerEditPort').value=x.port||'';if($('routerEditCheckType'))$('routerEditCheckType').value=x.checkType||'ping';$('routerEditColor').value=x.color||'#7c5cff';lockEdit();$('routerModal').classList.add('show')}
+function normalizePorts(value){let parts=String(value||'').split(/[,;\s]+/).filter(Boolean),ports=[...new Set(parts.map(Number).filter(x=>Number.isInteger(x)&&x>=1&&x<=65535))];return {ports,valid:parts.length===ports.length}}
+async function addRouter(){let name=$('routerName').value.trim(),address=$('routerAddr').value.trim(),parsed=normalizePorts($('routerPort')?$('routerPort').value:''),checkType=$('routerCheckType')?$('routerCheckType').value:'ping',color=$('routerColor').value||'#7c5cff';if(!name||!address)return alert('Заполни название и IP/адрес');if(!parsed.valid)return alert('Порты должны быть числами от 1 до 65535');if(checkType!=='ping'&&!parsed.ports.length)return alert('Для проверки TCP укажи порт');await api('/api/router/add',{name,address,ports:parsed.ports,checkType,color});$('routerName').value='';$('routerAddr').value='';if($('routerPort'))$('routerPort').value='';await load()}
+function editRouter(id){let x=state.routers.find(a=>a.id===id);if(!x)return;$('routerEditId').value=x.id;$('routerEditName').value=x.name||'';$('routerEditAddr').value=x.address||'';if($('routerEditPort'))$('routerEditPort').value=(x.ports&&x.ports.length?x.ports:[x.port].filter(Boolean)).join(', ');if($('routerEditCheckType'))$('routerEditCheckType').value=x.checkType||'ping';$('routerEditColor').value=x.color||'#7c5cff';lockEdit();$('routerModal').classList.add('show')}
 function closeRouterModal(){unlockEdit();$('routerModal').classList.remove('show')}
-async function saveRouterFromModal(){let id=$('routerEditId').value,name=$('routerEditName').value.trim(),address=$('routerEditAddr').value.trim(),port=Number($('routerEditPort')?$('routerEditPort').value||0:0),checkType=$('routerEditCheckType')?$('routerEditCheckType').value:'ping',color=$('routerEditColor').value||'#7c5cff';if(!name||!address)return alert('Заполни название и IP/адрес');if(port<0||port>65535)return alert('Порт должен быть от 1 до 65535');if(checkType!=='ping'&&!port)return alert('Для проверки TCP укажи порт');await api('/api/router/update',{id,name,address,port,checkType,color});unlockEdit();closeRouterModal();await checkNow()}async function delRouter(id){if(confirm('Удалить устройство?')){await api('/api/router/delete',{id});await load()}}
+async function saveRouterFromModal(){let id=$('routerEditId').value,name=$('routerEditName').value.trim(),address=$('routerEditAddr').value.trim(),parsed=normalizePorts($('routerEditPort')?$('routerEditPort').value:''),checkType=$('routerEditCheckType')?$('routerEditCheckType').value:'ping',color=$('routerEditColor').value||'#7c5cff';if(!name||!address)return alert('Заполни название и IP/адрес');if(!parsed.valid)return alert('Порты должны быть числами от 1 до 65535');if(checkType!=='ping'&&!parsed.ports.length)return alert('Для проверки TCP укажи порт');await api('/api/router/update',{id,name,address,ports:parsed.ports,checkType,color});unlockEdit();closeRouterModal();await checkNow()}async function delRouter(id){if(confirm('Удалить устройство?')){await api('/api/router/delete',{id});await load()}}
+let networkScanDevices=[];
+async function openNetworkScan(){
+  networkScanDevices=[];
+  $('networkScanResults').innerHTML='';
+  $('networkScanStatus').textContent='Определение локальной сети...';
+  lockEdit();$('networkScanModal').classList.add('show');
+  try{
+    let info=await api('/api/network/info');
+    if(info.suggested)$('networkSubnet').value=info.suggested;
+    $('networkScanStatus').textContent=info.suggested?'Подсеть определена. Нажмите «Начать сканирование».':'Не удалось определить подсеть автоматически. Введите её вручную.';
+  }catch(e){$('networkScanStatus').textContent=tr(e.message||String(e))}
+}
+function closeNetworkScan(){unlockEdit();$('networkScanModal').classList.remove('show')}
+function renderNetworkScanResults(){
+  let known=new Set((state.routers||[]).map(x=>String(x.address||'').toLowerCase()));
+  let rows=networkScanDevices.map((x,i)=>{
+    let added=known.has(String(x.address).toLowerCase());
+    return `<tr><td>${esc(x.address)}</td><td>${x.name?esc(x.name):'<span class="scanUnknown">—</span>'}</td><td>${x.mac?esc(x.mac):'<span class="scanUnknown">—</span>'}</td><td>${Number(x.ping)===0?'&lt;1':Number(x.ping)} мс</td><td>${added?'<span class="scanAdded">Уже добавлено</span>':`<button class="miniAction" onclick="addScannedDevice(${i})">Добавить</button>`}</td></tr>`;
+  }).join('');
+  $('networkScanResults').innerHTML=networkScanDevices.length?table(rows,['IP-адрес','Имя','MAC-адрес','Ping','Действия']):'<div class="panel scanEmpty">Активные устройства не найдены. Некоторые устройства могут блокировать Ping.</div>';
+  I18N.apply($('networkScanResults'));
+}
+async function scanLocalNetwork(){
+  let subnet=$('networkSubnet').value.trim(),button=$('networkScanButton');
+  button.disabled=true;$('networkScanStatus').textContent='Сканирование выполняется, это может занять несколько секунд...';$('networkScanResults').innerHTML='';
+  try{
+    let result=await api('/api/network/scan',{subnet});
+    networkScanDevices=result.devices||[];
+    $('networkSubnet').value=result.subnet||subnet;
+    $('networkScanStatus').textContent=`${tr('Найдено устройств:')} ${networkScanDevices.length}. ${tr('Проверено адресов:')} ${Number(result.scanned||0)}.`;
+    renderNetworkScanResults();
+  }catch(e){$('networkScanStatus').textContent=tr(e.message||String(e))}
+  finally{button.disabled=false}
+}
+async function addScannedDevice(index){
+  let device=networkScanDevices[index];if(!device)return;
+  let name=device.name||('Устройство '+device.address);
+  await api('/api/router/add',{name,address:device.address,ports:[],checkType:'ping',color:'#7c5cff'});
+  await load();renderNetworkScanResults();
+}
 async function saveSettings(){
   let port=Number($('setPort')?$('setPort').value:8000);if(!port||port<1024||port>65535)return alert('Порт должен быть от 1024 до 65535');
   let siteInterval=Number($('setSiteInterval')?.value||30),deviceInterval=Number($('setDeviceInterval')?.value||30);
@@ -301,7 +390,10 @@ async function saveSettings(){
     language:$('setLanguage')?$('setLanguage').value:(state.settings.language||'ru'),
     failureConfirmChecks:Number($('setFailureConfirmChecks')?.value||2),
     siteWarn,siteCrit,deviceWarn,deviceCrit,showMs:$('setMs').checked,autoOpen:$('setOpen').checked,
-    telegramToken:$('setToken').value,telegramChat:$('setChat').value,uiScale:$('setUiScale').value,textScale:$('setTextScale').value,
+    telegramToken:$('setToken').value,telegramChat:$('setChat').value,
+    telegramCommandsEnabled:$('setTelegramCommandsEnabled')?$('setTelegramCommandsEnabled').checked:false,
+    telegramCommandInterval:$('setTelegramCommandInterval')?Number($('setTelegramCommandInterval').value||5):5,
+    uiScale:$('setUiScale').value,textScale:$('setTextScale').value,
     themePreset:$('setThemePreset')?$('setThemePreset').value:'dark',
     themeAccent:$('setThemeAccent')?$('setThemeAccent').value:'#7c5cff',
     themeButton:$('setThemeButton')?$('setThemeButton').value:'#24457f',
@@ -344,6 +436,13 @@ async function testTelegram(){
   if(r && r.ok) alert('Тестовое сообщение отправлено в Telegram.');
   else alert('Не удалось отправить Telegram: ' + ((r&&r.error)?r.error:'проверь токен и chat ID'));
 }
+async function testTelegramCommands(){
+  let token=$('setToken')?.value.trim(),chat=$('setChat')?.value.trim();
+  if(!token||!chat)return alert('Введите Telegram bot token и chat ID.');
+  let r=await api('/api/telegram/commands/test',{telegramToken:token,telegramChat:chat});
+  if(r&&r.ok)alert('Команды зарегистрированы. Бот отправил список команд в Telegram.');
+  else alert('Не удалось проверить команды: '+((r&&r.error)?r.error:'проверьте токен, chat ID и сохраните настройки'));
+}
 async function checkPortSetting(){let port=Number($('setPort').value);if(!port||port<1024||port>65535)return alert('Порт должен быть от 1024 до 65535');let r=await api('/api/port/check',{port});alert(r.free?'Порт свободен: '+port:'Порт занят: '+port)}
 async function clearHistory(){if(confirm('Очистить историю графиков и события?')){await api('/api/history/clear',{});await load()}}
 function openGraphModal(id){
@@ -377,6 +476,37 @@ async function saveGraphFromModal(){
   unlockEdit();closeGraphModal();await load()
 }
 async function delGraph(id){if(confirm('Удалить график?')){await api('/api/graph/delete',{id});await load()}}
+let diagnosticContext={kind:'',id:''};
+function openDiagnosticModal(kind,id){
+  let obj=(kind==='site'?state.sites:state.routers).find(x=>x.id===id);
+  if(!obj)return;
+  diagnosticContext={kind,id};
+  $('diagnosticTitle').textContent='Диагностика';
+  $('diagnosticTarget').textContent=(obj.name||'')+' — '+(kind==='site'?obj.url:obj.address);
+  $('diagnosticResult').textContent='Выберите проверку.';
+  lockEdit();$('diagnosticModal').classList.add('show');
+}
+function closeDiagnosticModal(){unlockEdit();$('diagnosticModal').classList.remove('show')}
+function diagnosticHtml(result){
+  if(result.type==='whois'&&result.notFound)return `<div class="diagProxyWarning">RDAP-данные для этого домена или IP не найдены.</div><div class="diagItem"><b>Запрос</b><br>${esc(result.query||result.host||'—')}</div>`;
+  if(result.error)return `<span class="diagBad">${esc(result.error)}</span>`;
+  if(result.type==='ping'){let warning=result.syntheticProxy?`<div class="diagProxyWarning">DNS вернул Fake-IP ${esc((result.addresses||[]).join(', '))}. Реальный ping скрыт VPN/прокси.</div>`:'';return warning+`<div class="diagGrid">${(result.results||[]).map((x,i)=>`<div class="diagItem"><b>#${i+1}</b><br><span class="${x.ok?'diagGood':'diagBad'}">${x.ok?(result.syntheticProxy?'через прокси':(Number(x.ms)===0?'&lt;1 мс':x.ms+' мс')):esc(x.status)}</span></div>`).join('')}</div>`}
+  if(result.type==='dns'){let records=result.records||[];if(records.length)return `<div class="diagGrid">${records.map(x=>`<div class="diagItem"><b>${esc(x.type)}</b><br>${esc(x.value)}<br><small>TTL: ${Number(x.ttl||0)}</small></div>`).join('')}</div>`;return (result.addresses||[]).length?`<div class="diagGrid">${result.addresses.map(x=>`<div class="diagItem">${esc(x)}</div>`).join('')}</div>`:'DNS-записи не найдены.'}
+  if(result.type==='ports')return (result.results||[]).length?`<div class="diagGrid">${result.results.map(x=>`<div class="diagItem"><b>${x.port}</b><br><span class="${x.open?'diagGood':'diagBad'}">${x.open?'Открыт':'Закрыт'}</span></div>`).join('')}</div>`:'Порты не указаны.';
+  if(result.type==='ssl'){let c=result.certificate||{};return `<div class="diagGrid"><div class="diagItem"><b>Статус</b><br><span class="${c.ok?'diagGood':'diagBad'}">${c.ok?'Действителен':'Ошибка'}</span></div><div class="diagItem"><b>Действует до</b><br>${esc(c.validTo||'—')} (${Number(c.daysLeft??-1)} дн.)</div><div class="diagItem"><b>Издатель</b><br>${esc(c.issuer||'—')}</div><div class="diagItem"><b>Субъект</b><br>${esc(c.subject||c.error||'—')}</div></div>`}
+  if(result.type==='trace')return esc(result.output||'Нет данных.');
+  if(result.type==='whois'){return `<div class="diagGrid"><div class="diagItem"><b>Домен</b><br>${esc(result.name||result.host||'—')}</div><div class="diagItem"><b>Статус</b><br>${esc((result.status||[]).join(', ')||'—')}</div><div class="diagItem"><b>Nameservers</b><br>${esc((result.nameservers||[]).join(', ')||'—')}</div><div class="diagItem"><b>События</b><br>${esc((result.events||[]).map(x=>`${x.action}: ${x.date}`).join('\n')||'—')}</div></div>`}
+  return `<pre>${esc(JSON.stringify(result,null,2))}</pre>`;
+}
+async function runDiagnostic(type){
+  let resultEl=$('diagnosticResult');
+  resultEl.textContent='Выполняется проверка...';
+  try{
+    let result=await api('/api/diagnostic',{kind:diagnosticContext.kind,id:diagnosticContext.id,type});
+    resultEl.innerHTML=diagnosticHtml(result);
+    I18N.apply(resultEl);
+  }catch(e){resultEl.innerHTML=`<span class="diagBad">${esc(e.message||String(e))}</span>`}
+}
 function paletteFor(names,isDevice){
   const defaults=['#35f0ff','#7d61ff','#39e58c','#ffcf66','#ff5f78','#ff8a00','#ff4db8','#4aa3ff'];
   return names.map((n,i)=>{
@@ -392,7 +522,10 @@ function datasetFor(type){
   let objects=(isDevice?state.routers:state.sites)||[];
   let entries=h.filter(x=>isDevice?x.kind==='router':x.kind==='site');
   const historyKey=x=>x.objectId||objects.find(o=>o.name===x.name)?.id||x.name;
-  let keys=[...new Set(entries.map(historyKey))].slice(0,8);
+  let historyKeys=[...new Set(entries.map(historyKey))];
+  let availableKeys=new Set(historyKeys);
+  let orderedKeys=objects.map(x=>x.id).filter(id=>availableKeys.has(id));
+  let keys=[...orderedKeys,...historyKeys.filter(key=>!orderedKeys.includes(key))].slice(0,8);
   let names=keys.map(key=>objects.find(x=>x.id===key)?.name||entries.find(x=>historyKey(x)===key)?.name||key);
   let colors=paletteFor(names,isDevice);
   return {labels,names,colors,values:keys.map(key=>labels.map(t=>{let r=[...entries].reverse().find(x=>x.time===t&&historyKey(x)===key);if(!r)return null;if(type==='site_availability'||type==='device_availability')return r.ok?100:0;if(type==='site_codes')return r.code||0;if(type==='site_errors')return r.ok?0:1;return r.value||0}))}
@@ -566,7 +699,7 @@ async function saveCustomAutoRefresh(){
 }
 async function saveSettingsSilent(){
   let ss=state.settings||{};
-  await api('/api/settings/save',{title:APP_TITLE,subtitle:APP_SUBTITLE,language:ss.language||I18N.current(),interval:ss.interval||30,siteInterval:ss.siteInterval||ss.interval||30,deviceInterval:ss.deviceInterval||ss.interval||30,timeout:ss.timeout||10,port:ss.port||8000,siteWarn:ss.siteWarn||1000,siteCrit:ss.siteCrit||3000,deviceWarn:ss.deviceWarn||150,deviceCrit:ss.deviceCrit||300,failureConfirmChecks:ss.failureConfirmChecks||2,siteOverviewStyle:ss.siteOverviewStyle||'line',deviceOverviewStyle:ss.deviceOverviewStyle||'line',showMs:!!ss.showMs,autoOpen:!!ss.autoOpen,telegramToken:ss.telegramToken||'',telegramChat:ss.telegramChat||'',uiScale:ss.uiScale||0.9,textScale:ss.textScale||1,autoRefresh:Number(ss.autoRefresh||0)});
+  await api('/api/settings/save',{title:APP_TITLE,subtitle:APP_SUBTITLE,language:ss.language||I18N.current(),interval:ss.interval||30,siteInterval:ss.siteInterval||ss.interval||30,deviceInterval:ss.deviceInterval||ss.interval||30,timeout:ss.timeout||10,port:ss.port||8000,siteWarn:ss.siteWarn||1000,siteCrit:ss.siteCrit||3000,deviceWarn:ss.deviceWarn||150,deviceCrit:ss.deviceCrit||300,failureConfirmChecks:ss.failureConfirmChecks||2,siteOverviewStyle:ss.siteOverviewStyle||'line',deviceOverviewStyle:ss.deviceOverviewStyle||'line',showMs:!!ss.showMs,autoOpen:!!ss.autoOpen,telegramToken:ss.telegramToken||'',telegramChat:ss.telegramChat||'',telegramCommandsEnabled:!!ss.telegramCommandsEnabled,telegramCommandInterval:Number(ss.telegramCommandInterval||5),uiScale:ss.uiScale||0.9,textScale:ss.textScale||1,autoRefresh:Number(ss.autoRefresh||0)});
 }
 
 async function saveOverviewStyle(kind){

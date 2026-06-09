@@ -6,6 +6,7 @@ $dbPath = Join-Path $root 'data\db.json'
 $dbBackupPath = Join-Path $root 'data\db.backup.json'
 $appTitle = 'MoonFox monitor'
 $appSubtitle = 'Следит за системой, пока ты спишь.'
+$appVersion = '0.6.0'
 
 function Log($msg) {
   $ts = (Get-Date).ToString('HH:mm:ss')
@@ -17,7 +18,7 @@ function Ensure-Db {
   if (!(Test-Path $dataDir)) { New-Item -ItemType Directory -Force -Path $dataDir | Out-Null }
   if (!(Test-Path $dbPath)) {
     $json = @'
-{"settings":{"title":"MoonFox monitor","subtitle":"Следит за системой, пока ты спишь.","language":"ru","interval":30,"timeout":10,"showMs":true,"autoOpen":true,"telegramToken":"","telegramChat":"","uiScale":0.72,"textScale":0.82,"autoRefresh":0,"port":8000,"siteWarn":1000,"siteCrit":3000,"deviceWarn":150,"deviceCrit":300},"sites":[],"routers":[],"events":[],"history":[],"graphs":[{"id":"main_graph","title":"Общий график","type":"site_response","style":"line","height":260,"note":""}]}
+{"settings":{"title":"MoonFox monitor","subtitle":"Следит за системой, пока ты спишь.","version":"0.6.0","language":"ru","interval":30,"timeout":10,"showMs":true,"autoOpen":true,"telegramToken":"","telegramChat":"","uiScale":0.72,"textScale":0.82,"autoRefresh":0,"port":8000,"siteWarn":1000,"siteCrit":3000,"deviceWarn":150,"deviceCrit":300},"sites":[],"routers":[],"events":[],"history":[],"graphs":[{"id":"main_graph","title":"Общий график","type":"site_response","style":"line","height":260,"note":""}]}
 '@
     [IO.File]::WriteAllText($dbPath, $json, [Text.UTF8Encoding]::new($false))
   }
@@ -118,6 +119,145 @@ function SendTelegram($db, $text) {
   }
 }
 
+function GetTelegramCommandInterval($db) {
+  $value = GetSettingInt $db 'telegramCommandInterval' 5
+  if ($value -lt 3) { return 3 }
+  if ($value -gt 60) { return 60 }
+  return $value
+}
+
+function GetTelegramUpdateOffset($db) {
+  try { return [long]$db.settings.telegramUpdateOffset } catch { return [long]0 }
+}
+
+function LimitTelegramText($text) {
+  $value = [string]$text
+  if ($value.Length -le 3900) { return $value }
+  return $value.Substring(0, 3880) + "`n..."
+}
+
+function RegisterTelegramCommands($db) {
+  $token = [string]$db.settings.telegramToken
+  if ([string]::IsNullOrWhiteSpace($token)) {
+    return [pscustomobject]@{ ok=$false; error='Telegram token is empty' }
+  }
+  try {
+    $commands = @(
+      @{ command='status'; description='Общее состояние мониторинга' },
+      @{ command='sites'; description='Список сайтов' },
+      @{ command='devices'; description='Список устройств' },
+      @{ command='problems'; description='Активные проблемы' },
+      @{ command='check'; description='Запустить проверку' },
+      @{ command='help'; description='Список команд' }
+    )
+    $payload = @{ commands=$commands } | ConvertTo-Json -Depth 5 -Compress
+    $uri = 'https://api.telegram.org/bot' + $token + '/setMyCommands'
+    Invoke-RestMethod -Uri $uri -Method Post -ContentType 'application/json; charset=utf-8' -Body $payload -TimeoutSec 8 | Out-Null
+    return [pscustomobject]@{ ok=$true; error='' }
+  } catch {
+    return [pscustomobject]@{ ok=$false; error=$_.Exception.Message }
+  }
+}
+
+function GetTelegramCommandReply($db, $command) {
+  $sites = @($db.sites)
+  $devices = @($db.routers)
+  $availableSites = @($sites | Where-Object { $_.status -eq 'OK' -or $_.status -eq 'SLOW' }).Count
+  $availableDevices = @($devices | Where-Object { $_.status -eq 'OK' -or $_.status -eq 'SLOW' }).Count
+  $problemSites = @($sites | Where-Object { $_.status -eq 'BAD' -or $_.status -eq 'SLOW' })
+  $problemDevices = @($devices | Where-Object { $_.status -eq 'BAD' -or $_.status -eq 'SLOW' })
+  switch ($command) {
+    'status' {
+      return ("🦊 MoonFox monitor`n`n" +
+        "Сайты: $availableSites/$($sites.Count) доступны`n" +
+        "Устройства: $availableDevices/$($devices.Count) доступны`n" +
+        "Активных проблем: $($problemSites.Count + $problemDevices.Count)`n" +
+        'Время: ' + (Get-Date).ToString('dd.MM.yyyy HH:mm:ss'))
+    }
+    'sites' {
+      if (-not $sites.Count) { return 'Сайты не добавлены.' }
+      $lines = @($sites | ForEach-Object {
+        $icon = if ($_.status -eq 'OK') { '🟢' } elseif ($_.status -eq 'SLOW') { '🟡' } elseif ($_.status -eq 'BAD') { '🔴' } else { '⚪' }
+        "$icon $($_.name) — $([int]$_.response) мс"
+      })
+      return LimitTelegramText ("🌐 Сайты`n`n" + ($lines -join "`n"))
+    }
+    'devices' {
+      if (-not $devices.Count) { return 'Устройства не добавлены.' }
+      $lines = @($devices | ForEach-Object {
+        $icon = if ($_.status -eq 'OK') { '🟢' } elseif ($_.status -eq 'SLOW') { '🟡' } elseif ($_.status -eq 'BAD') { '🔴' } else { '⚪' }
+        "$icon $($_.name) — $([int]$_.ping) мс"
+      })
+      return LimitTelegramText ("🖥 Устройства`n`n" + ($lines -join "`n"))
+    }
+    'problems' {
+      if (-not $problemSites.Count -and -not $problemDevices.Count) { return '✅ Активных проблем нет.' }
+      $lines = @()
+      $lines += @($problemSites | ForEach-Object { "🌐 $($_.name): $($_.status)" })
+      $lines += @($problemDevices | ForEach-Object { "🖥 $($_.name): $($_.status)" })
+      return LimitTelegramText ("⚠ Активные проблемы`n`n" + ($lines -join "`n"))
+    }
+    'help' {
+      return ("Команды MoonFox monitor:`n`n" +
+        "/status — общее состояние`n" +
+        "/sites — список сайтов`n" +
+        "/devices — список устройств`n" +
+        "/problems — активные проблемы`n" +
+        "/check — запустить проверку`n" +
+        "/help — список команд")
+    }
+    default { return '' }
+  }
+}
+
+function ProcessTelegramCommands($db) {
+  if ($db.settings.telegramCommandsEnabled -ne $true) { return $false }
+  $token = [string]$db.settings.telegramToken
+  $allowedChat = [string]$db.settings.telegramChat
+  if ([string]::IsNullOrWhiteSpace($token) -or [string]::IsNullOrWhiteSpace($allowedChat)) { return $false }
+  $offset = GetTelegramUpdateOffset $db
+  try {
+    if ($offset -le 0) {
+      $initUri = 'https://api.telegram.org/bot' + $token + '/getUpdates?offset=-1&limit=1&timeout=0'
+      $initial = Invoke-RestMethod -Uri $initUri -TimeoutSec 6
+      $last = @($initial.result | Select-Object -Last 1)
+      if ($last.Count) { SetObjectProperty $db.settings 'telegramUpdateOffset' ([long]$last[0].update_id + 1) }
+      else { SetObjectProperty $db.settings 'telegramUpdateOffset' 1 }
+      return $true
+    }
+    $uri = 'https://api.telegram.org/bot' + $token + '/getUpdates?offset=' + $offset + '&limit=20&timeout=0'
+    $response = Invoke-RestMethod -Uri $uri -TimeoutSec 6
+    $changed = $false
+    foreach ($update in @($response.result)) {
+      $nextOffset = [long]$update.update_id + 1
+      if ($nextOffset -gt (GetTelegramUpdateOffset $db)) {
+        SetObjectProperty $db.settings 'telegramUpdateOffset' $nextOffset
+        $changed = $true
+      }
+      $message = $update.message
+      if ($null -eq $message -or [string]$message.chat.id -ne $allowedChat) { continue }
+      $text = ([string]$message.text).Trim()
+      if ($text -notmatch '^/([a-zA-Z]+)(?:@[a-zA-Z0-9_]+)?(?:\s|$)') { continue }
+      $command = $Matches[1].ToLowerInvariant()
+      if ($command -eq 'check') {
+        [void](SendTelegram $db '⏳ Проверка сайтов и устройств запущена.')
+        CheckAll $db
+        $changed = $true
+        [void](SendTelegram $db ((GetTelegramCommandReply $db 'status') + "`n`n✅ Проверка завершена."))
+      } elseif ($command -in @('status','sites','devices','problems','help','start')) {
+        if ($command -eq 'start') { $command = 'help' }
+        [void](SendTelegram $db (GetTelegramCommandReply $db $command))
+      } else {
+        [void](SendTelegram $db 'Неизвестная команда. Используйте /help.')
+      }
+    }
+    return $changed
+  } catch {
+    Log ('Telegram commands error: ' + $_.Exception.Message)
+    return $false
+  }
+}
+
 
 function Fix-ImportedDb($imported, $currentSettings) {
   if ($null -eq $imported.settings) { $imported | Add-Member -NotePropertyName settings -NotePropertyValue ([pscustomobject]@{}) -Force }
@@ -143,6 +283,10 @@ function Fix-ImportedDb($imported, $currentSettings) {
     if ($null -eq $s.response) { $s | Add-Member -NotePropertyName response -NotePropertyValue 0 -Force }
     if ($null -eq $s.checked) { $s | Add-Member -NotePropertyName checked -NotePropertyValue '-' -Force }
     if ($null -eq $s.lastFailure) { $s | Add-Member -NotePropertyName lastFailure -NotePropertyValue 'Никогда' -Force }
+    if ($null -eq $s.ping) { $s | Add-Member -NotePropertyName ping -NotePropertyValue 0 -Force }
+    if ($null -eq $s.pingSynthetic) { $s | Add-Member -NotePropertyName pingSynthetic -NotePropertyValue $false -Force }
+    if ($null -eq $s.dns) { $s | Add-Member -NotePropertyName dns -NotePropertyValue @() -Force }
+    if ($null -eq $s.ssl) { $s | Add-Member -NotePropertyName ssl -NotePropertyValue $null -Force }
   }
 
   foreach ($r in @($imported.routers)) {
@@ -155,6 +299,12 @@ function Fix-ImportedDb($imported, $currentSettings) {
     if ($null -eq $r.checkType -or [string]::IsNullOrWhiteSpace([string]$r.checkType)) { $r | Add-Member -NotePropertyName checkType -NotePropertyValue 'ping' -Force }
     if ($null -eq $r.checked) { $r | Add-Member -NotePropertyName checked -NotePropertyValue '-' -Force }
     if ($null -eq $r.lastFailure) { $r | Add-Member -NotePropertyName lastFailure -NotePropertyValue 'Никогда' -Force }
+    if ($null -eq $r.ports) {
+      $legacyPorts = @()
+      if ([int]$r.port -gt 0) { $legacyPorts = @([int]$r.port) }
+      $r | Add-Member -NotePropertyName ports -NotePropertyValue $legacyPorts -Force
+    }
+    if ($null -eq $r.portResults) { $r | Add-Member -NotePropertyName portResults -NotePropertyValue @() -Force }
   }
 
   Ensure-SettingsDefaults $imported
@@ -194,6 +344,7 @@ function EnsureSetting($db, $name, $value) {
 function Ensure-SettingsDefaults($db) {
   SetObjectProperty $db.settings 'title' $appTitle
   SetObjectProperty $db.settings 'subtitle' $appSubtitle
+  SetObjectProperty $db.settings 'version' $appVersion
   EnsureSetting $db 'language' 'ru'
   EnsureSetting $db 'notifyDown' $true
   EnsureSetting $db 'notifySlow' $true
@@ -211,6 +362,9 @@ function Ensure-SettingsDefaults($db) {
   EnsureSetting $db 'deviceInterval' (GetCheckInterval $db)
   EnsureSetting $db 'siteOverviewStyle' 'line'
   EnsureSetting $db 'deviceOverviewStyle' 'line'
+  EnsureSetting $db 'telegramCommandsEnabled' $false
+  EnsureSetting $db 'telegramCommandInterval' 5
+  EnsureSetting $db 'telegramUpdateOffset' 0
   EnsureSetting $db 'themePreset' 'dark'
   EnsureSetting $db 'themeAccent' '#7c5cff'
   EnsureSetting $db 'themeButton' '#24457f'
@@ -334,6 +488,263 @@ function TestTcpPort($address, $port, $timeoutMs) {
   }
 }
 
+function GetHostFromTarget($target) {
+  $value = [string]$target
+  try {
+    if ($value -match '^https?://') { return ([Uri]$value).DnsSafeHost }
+  } catch {}
+  $value = $value.Trim()
+  if ($value -match '^[a-zA-Z0-9.-]+$') { return $value }
+  throw 'Invalid host'
+}
+
+function ParsePorts($value) {
+  $ports = @()
+  foreach ($part in @($value) -join ',' -split '[,;\s]+') {
+    if ([string]::IsNullOrWhiteSpace($part)) { continue }
+    $p = 0
+    if ([int]::TryParse($part, [ref]$p) -and $p -ge 1 -and $p -le 65535) { $ports += $p }
+  }
+  return @($ports | Sort-Object -Unique)
+}
+
+function GetDnsInfo($hostName) {
+  try {
+    return @([Net.Dns]::GetHostAddresses($hostName) | ForEach-Object { $_.IPAddressToString } | Sort-Object -Unique)
+  } catch { return @() }
+}
+
+function TestSyntheticIp($address) {
+  $ip = $null
+  if (-not [Net.IPAddress]::TryParse([string]$address, [ref]$ip)) { return $false }
+  $bytes = $ip.GetAddressBytes()
+  return ($bytes.Length -eq 4 -and $bytes[0] -eq 198 -and ($bytes[1] -eq 18 -or $bytes[1] -eq 19))
+}
+
+function TestPrivateIPv4($address) {
+  $ip = $null
+  if (-not [Net.IPAddress]::TryParse([string]$address, [ref]$ip)) { return $false }
+  $bytes = $ip.GetAddressBytes()
+  if ($bytes.Length -ne 4) { return $false }
+  return (
+    $bytes[0] -eq 10 -or
+    ($bytes[0] -eq 172 -and $bytes[1] -ge 16 -and $bytes[1] -le 31) -or
+    ($bytes[0] -eq 192 -and $bytes[1] -eq 168)
+  )
+}
+
+function GetLocalNetworkInfo {
+  $addresses = @()
+  try {
+    foreach ($config in @(Get-NetIPConfiguration -ErrorAction Stop)) {
+      foreach ($entry in @($config.IPv4Address)) {
+        $address = [string]$entry.IPAddress
+        if (TestPrivateIPv4 $address) {
+          $parts = $address.Split('.')
+          $addresses += [pscustomobject]@{
+            address = $address
+            subnet = ($parts[0..2] -join '.') + '.0/24'
+            interface = [string]$config.InterfaceAlias
+            preferred = ($null -ne $config.IPv4DefaultGateway)
+          }
+        }
+      }
+    }
+  } catch {}
+  if ($addresses.Count -eq 0) {
+    try {
+      foreach ($adapter in @([Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces())) {
+        if ($adapter.OperationalStatus -ne [Net.NetworkInformation.OperationalStatus]::Up) { continue }
+        foreach ($entry in @($adapter.GetIPProperties().UnicastAddresses)) {
+          if ($entry.Address.AddressFamily -ne [Net.Sockets.AddressFamily]::InterNetwork) { continue }
+          $address = [string]$entry.Address.IPAddressToString
+          if (TestPrivateIPv4 $address) {
+            $parts = $address.Split('.')
+            $addresses += [pscustomobject]@{
+              address = $address
+              subnet = ($parts[0..2] -join '.') + '.0/24'
+              interface = [string]$adapter.Name
+              preferred = ($adapter.NetworkInterfaceType -ne [Net.NetworkInformation.NetworkInterfaceType]::Tunnel)
+            }
+          }
+        }
+      }
+    } catch {}
+  }
+  $addresses = @($addresses | Sort-Object @{Expression='preferred';Descending=$true},interface,address -Unique)
+  return [pscustomobject]@{
+    suggested = if ($addresses.Count) { [string]$addresses[0].subnet } else { '' }
+    interfaces = $addresses
+  }
+}
+
+function InvokeLocalNetworkScan($cidr) {
+  $networkInfo = GetLocalNetworkInfo
+  if ([string]::IsNullOrWhiteSpace([string]$cidr)) { $cidr = $networkInfo.suggested }
+  $cidr = ([string]$cidr).Trim()
+  if ($cidr -notmatch '^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/24$') {
+    throw 'Укажите частную IPv4-подсеть в формате 192.168.1.0/24'
+  }
+  $octets = @(1..4 | ForEach-Object { [int]$Matches[$_] })
+  if (@($octets | Where-Object { $_ -lt 0 -or $_ -gt 255 }).Count -gt 0) { throw 'Некорректный IPv4-адрес' }
+  $baseAddress = ($octets[0..2] -join '.') + '.0'
+  if (-not (TestPrivateIPv4 $baseAddress)) { throw 'Разрешено сканирование только частных локальных IPv4-подсетей' }
+  $subnet = $baseAddress + '/24'
+  $prefix = $octets[0..2] -join '.'
+
+  $jobs = @()
+  foreach ($hostNumber in 1..254) {
+    $address = $prefix + '.' + $hostNumber
+    $ping = New-Object Net.NetworkInformation.Ping
+    try {
+      $jobs += [pscustomobject]@{ address=$address; ping=$ping; task=$ping.SendPingAsync($address, 650) }
+    } catch {
+      $ping.Dispose()
+    }
+  }
+
+  $alive = @()
+  foreach ($job in $jobs) {
+    try {
+      $reply = $job.task.GetAwaiter().GetResult()
+      if ($reply.Status -eq [Net.NetworkInformation.IPStatus]::Success) {
+        $alive += [pscustomobject]@{ address=$job.address; ping=[int]$reply.RoundtripTime }
+      }
+    } catch {
+    } finally {
+      try { $job.ping.Dispose() } catch {}
+    }
+  }
+
+  $macByAddress = @{}
+  try {
+    foreach ($line in @(& arp.exe -a 2>$null)) {
+      if ($line -match '^\s*(\d+\.\d+\.\d+\.\d+)\s+([0-9a-fA-F-]{17})\s+') {
+        $macByAddress[$Matches[1]] = $Matches[2].ToUpperInvariant()
+      }
+    }
+  } catch {}
+
+  $devices = @()
+  foreach ($item in $alive) {
+    $hostName = ''
+    try {
+      $dnsTask = [Net.Dns]::GetHostEntryAsync($item.address)
+      if ($dnsTask.Wait(350)) { $hostName = [string]$dnsTask.Result.HostName }
+    } catch {}
+    $devices += [pscustomobject]@{
+      address = $item.address
+      name = $hostName
+      mac = if ($macByAddress.ContainsKey($item.address)) { [string]$macByAddress[$item.address] } else { '' }
+      ping = [int]$item.ping
+    }
+  }
+  return [pscustomobject]@{
+    subnet = $subnet
+    scanned = 254
+    devices = @($devices | Sort-Object { [version]$_.address })
+  }
+}
+
+function GetDnsRecords($hostName) {
+  $records = @()
+  if (-not (Get-Command Resolve-DnsName -ErrorAction SilentlyContinue)) { return $records }
+  foreach ($type in @('A','AAAA','CNAME','MX','NS')) {
+    try {
+      foreach ($item in @(Resolve-DnsName -Name $hostName -Type $type -DnsOnly -ErrorAction Stop)) {
+        $value = ''
+        if ($item.IPAddress) { $value = [string]$item.IPAddress }
+        elseif ($item.NameHost) { $value = [string]$item.NameHost }
+        elseif ($item.NameExchange) { $value = ([string]$item.Preference + ' ' + [string]$item.NameExchange).Trim() }
+        if (-not [string]::IsNullOrWhiteSpace($value)) {
+          $records += [pscustomobject]@{ type=$type; name=[string]$item.Name; value=$value; ttl=[int]$item.TTL }
+        }
+      }
+    } catch {}
+  }
+  return @($records | Sort-Object type,value -Unique)
+}
+
+function GetSslInfo($hostName, $port=443, $timeoutMs=5000) {
+  $client = $null
+  $ssl = $null
+  try {
+    $client = New-Object Net.Sockets.TcpClient
+    $iar = $client.BeginConnect($hostName, [int]$port, $null, $null)
+    if (-not $iar.AsyncWaitHandle.WaitOne($timeoutMs, $false)) { throw 'Connection timeout' }
+    $client.EndConnect($iar)
+    $ssl = [Net.Security.SslStream]::new($client.GetStream(), $false)
+    $ssl.AuthenticateAsClient($hostName)
+    $cert = New-Object Security.Cryptography.X509Certificates.X509Certificate2($ssl.RemoteCertificate)
+    $days = [int][Math]::Floor(($cert.NotAfter.ToUniversalTime() - (Get-Date).ToUniversalTime()).TotalDays)
+    return [pscustomobject]@{ ok=($days -ge 0); validFrom=$cert.NotBefore.ToString('dd.MM.yyyy'); validTo=$cert.NotAfter.ToString('dd.MM.yyyy'); daysLeft=$days; issuer=$cert.Issuer; subject=$cert.Subject; policyErrors='None'; error='' }
+  } catch {
+    return [pscustomobject]@{ ok=$false; validFrom=''; validTo=''; daysLeft=-1; issuer=''; subject=''; policyErrors='ValidationFailed'; error=$_.Exception.Message }
+  } finally {
+    if ($ssl) { try { $ssl.Dispose() } catch {} }
+    if ($client) { try { $client.Close() } catch {} }
+  }
+}
+
+function InvokeDiagnostic($target, $type, $portsValue) {
+  $hostName = GetHostFromTarget $target
+  switch ($type) {
+    'ping' {
+      $items = @()
+      $addresses = @(GetDnsInfo $hostName)
+      $synthetic = @($addresses | Where-Object { TestSyntheticIp $_ }).Count -gt 0
+      try {
+        $ping = New-Object Net.NetworkInformation.Ping
+        1..4 | ForEach-Object {
+          try {
+            $reply = $ping.Send($hostName, 3000)
+            $items += [pscustomobject]@{ ok=($reply.Status -eq 'Success'); ms=if($reply.Status -eq 'Success'){[int]$reply.RoundtripTime}else{0}; status=[string]$reply.Status }
+          } catch { $items += [pscustomobject]@{ ok=$false; ms=0; status=$_.Exception.Message } }
+        }
+      } finally { if ($ping) { $ping.Dispose() } }
+      return [pscustomobject]@{ type='ping'; host=$hostName; addresses=$addresses; syntheticProxy=$synthetic; results=$items }
+    }
+    'dns' {
+      return [pscustomobject]@{ type='dns'; host=$hostName; addresses=@(GetDnsInfo $hostName); records=@(GetDnsRecords $hostName) }
+    }
+    'ssl' {
+      return [pscustomobject]@{ type='ssl'; host=$hostName; certificate=(GetSslInfo $hostName) }
+    }
+    'ports' {
+      $results = @()
+      foreach ($p in @(ParsePorts $portsValue)) { $results += [pscustomobject]@{ port=$p; open=[bool](TestTcpPort $hostName $p 2500) } }
+      return [pscustomobject]@{ type='ports'; host=$hostName; results=$results }
+    }
+    'trace' {
+      $output = & tracert.exe -d -h 15 -w 1000 $hostName 2>&1 | Out-String
+      return [pscustomobject]@{ type='trace'; host=$hostName; output=$output.Trim() }
+    }
+    'whois' {
+      $parsedIp = $null
+      $isIp = [Net.IPAddress]::TryParse($hostName, [ref]$parsedIp)
+      $candidates = if ($isIp) { @($hostName) } else {
+        $normalized = $hostName.Trim('.').ToLowerInvariant()
+        $list = @($normalized)
+        if ($normalized.StartsWith('www.')) { $list += $normalized.Substring(4) }
+        @($list | Select-Object -Unique)
+      }
+      $lastError = ''
+      foreach ($candidate in $candidates) {
+        try {
+          $rdapKind = if ($isIp) { 'ip' } else { 'domain' }
+          $result = Invoke-RestMethod -Uri ('https://rdap.org/' + $rdapKind + '/' + [Uri]::EscapeDataString($candidate)) -TimeoutSec 12
+          $events = @($result.events | ForEach-Object { [pscustomobject]@{ action=$_.eventAction; date=$_.eventDate } })
+          return [pscustomobject]@{ type='whois'; host=$hostName; query=$candidate; handle=$result.handle; name=$result.ldhName; status=@($result.status); nameservers=@($result.nameservers | ForEach-Object { $_.ldhName }); events=$events }
+        } catch {
+          $lastError = $_.Exception.Message
+        }
+      }
+      return [pscustomobject]@{ type='whois'; host=$hostName; query=$candidates[-1]; notFound=$true; error='RDAP data was not found for this domain or IP address'; details=$lastError }
+    }
+    default { throw 'Unknown diagnostic type' }
+  }
+}
+
 function CheckAll($db, $checkSites=$true, $checkDevices=$true) {
   Log 'Check started'
   $timeout = GetSettingInt $db 'timeout' 10
@@ -361,6 +772,27 @@ function CheckAll($db, $checkSites=$true, $checkDevices=$true) {
     }
     $sw.Stop()
     $ms = [int]$sw.ElapsedMilliseconds
+    try {
+      $siteHost = GetHostFromTarget $s.url
+      $siteDns = @(GetDnsInfo $siteHost)
+      SetObjectProperty $s 'dns' $siteDns
+      SetObjectProperty $s 'pingSynthetic' (@($siteDns | Where-Object { TestSyntheticIp $_ }).Count -gt 0)
+      $sitePing = 0
+      $sitePingClient = $null
+      try {
+        $sitePingClient = New-Object Net.NetworkInformation.Ping
+        $pingReply = $sitePingClient.Send($siteHost, 2500)
+        if ($pingReply.Status -eq 'Success') { $sitePing = [int]$pingReply.RoundtripTime }
+      } catch {} finally { if ($sitePingClient) { $sitePingClient.Dispose() } }
+      SetObjectProperty $s 'ping' $sitePing
+      if ([string]$s.url -match '^https://') { SetObjectProperty $s 'ssl' (GetSslInfo $siteHost) }
+      else { SetObjectProperty $s 'ssl' $null }
+    } catch {
+      SetObjectProperty $s 'dns' @()
+      SetObjectProperty $s 'ping' 0
+      SetObjectProperty $s 'pingSynthetic' $false
+      SetObjectProperty $s 'ssl' $null
+    }
     $timeNow = (Get-Date).ToString('dd.MM.yyyy HH:mm:ss')
     $telegramText = ''
     if ($ok -and $ms -ge $siteCrit) {
@@ -402,6 +834,10 @@ function CheckAll($db, $checkSites=$true, $checkDevices=$true) {
     try { if ($r.checkType) { $checkType = [string]$r.checkType } } catch {}
     $port = 0
     try { if ($r.port) { $port = [int]$r.port } } catch { $port = 0 }
+    $ports = @()
+    try { $ports = @(ParsePorts $r.ports) } catch {}
+    if ($ports.Count -eq 0 -and $port -gt 0) { $ports = @($port) }
+    if ($ports.Count -gt 0) { $port = [int]$ports[0] }
 
     $sw = [Diagnostics.Stopwatch]::StartNew()
     $pingOk = $true
@@ -412,8 +848,13 @@ function CheckAll($db, $checkSites=$true, $checkDevices=$true) {
     if ($pingOk) { $ping = [int]$sw.ElapsedMilliseconds } else { $ping = 0 }
 
     $portOk = $true
-    if (($checkType -eq 'tcp' -or $checkType -eq 'both') -and $port -gt 0) {
-      $portOk = TestTcpPort $r.address $port 3000
+    $portResults = @()
+    if (($checkType -eq 'tcp' -or $checkType -eq 'both') -and $ports.Count -gt 0) {
+      foreach ($p in $ports) {
+        $isOpen = [bool](TestTcpPort $r.address $p 3000)
+        $portResults += [pscustomobject]@{ port=[int]$p; open=$isOpen }
+        if (-not $isOpen) { $portOk = $false }
+      }
     }
 
     $ok = $false
@@ -422,14 +863,17 @@ function CheckAll($db, $checkSites=$true, $checkDevices=$true) {
     else { $ok = ($pingOk -and $portOk) }
 
     try { $r.portOk = [bool]$portOk } catch { $r | Add-Member -NotePropertyName portOk -NotePropertyValue ([bool]$portOk) -Force }
+    SetObjectProperty $r 'ports' $ports
+    SetObjectProperty $r 'portResults' $portResults
     try { $r.checkType = $checkType } catch { $r | Add-Member -NotePropertyName checkType -NotePropertyValue $checkType -Force }
 
     $timeNow = (Get-Date).ToString('dd.MM.yyyy HH:mm:ss')
     $telegramText = ''
     if (-not $ok) {
       $observedStatus = 'BAD'; $statusLevel = 'bad'
-      if (($checkType -eq 'tcp' -or $checkType -eq 'both') -and $port -gt 0 -and -not $portOk) {
-        $msg = 'Устройство "' + $r.name + '" порт ' + [string]$port + ' закрыт'
+      if (($checkType -eq 'tcp' -or $checkType -eq 'both') -and $ports.Count -gt 0 -and -not $portOk) {
+        $closedPorts = @($portResults | Where-Object { -not $_.open } | ForEach-Object { $_.port }) -join ', '
+        $msg = 'Устройство "' + $r.name + '" закрытые порты: ' + $closedPorts
       } else {
         $msg = 'Устройство "' + $r.name + '" недоступно'
       }
@@ -450,8 +894,8 @@ function CheckAll($db, $checkSites=$true, $checkDevices=$true) {
       if (($r.status -eq $observedStatus) -and ($db.settings.notifySlow -ne $false) -and (ShouldSendProblemNotify $r $prevStatus $r.status $deviceRepeatMinutes)) { $telegramText = BuildDeviceTelegram $db 'tgDeviceSlow' 'Высокий ping' '🟡' $r $ping $deviceWarn $deviceCrit $timeNow }
     } else {
       $observedStatus = 'OK'; $r.status = ConfirmObservedStatus $r $observedStatus $failureConfirmChecks; $statusLevel = 'ok'
-      if (($checkType -eq 'tcp' -or $checkType -eq 'both') -and $port -gt 0) {
-        $msg = 'Устройство "' + $r.name + '" доступно, порт ' + [string]$port + ' открыт'
+      if (($checkType -eq 'tcp' -or $checkType -eq 'both') -and $ports.Count -gt 0) {
+        $msg = 'Устройство "' + $r.name + '" доступно, порты открыты'
       } else {
         $msg = 'Устройство "' + $r.name + '" доступно'
       }
@@ -461,7 +905,7 @@ function CheckAll($db, $checkSites=$true, $checkDevices=$true) {
     }
     $r.ping = $ping
     $r.checked = (Get-Date).ToString('HH:mm:ss')
-    $db.history += [pscustomobject]@{ ts=(Get-Date).ToString('o'); time=(Get-Date).ToString('HH:mm:ss'); kind='router'; objectId=$r.id; name=$r.name; value=$ping; ok=$ok; code=0; status=$r.status; observedStatus=$observedStatus; port=$port; portOk=$portOk }
+    $db.history += [pscustomobject]@{ ts=(Get-Date).ToString('o'); time=(Get-Date).ToString('HH:mm:ss'); kind='router'; objectId=$r.id; name=$r.name; value=$ping; ok=$ok; code=0; status=$r.status; observedStatus=$observedStatus; port=$port; ports=$ports; portOk=$portOk }
     if ($statusLevel -eq 'recovered' -or (($statusLevel -eq 'bad' -or $statusLevel -eq 'warn') -and $prevStatus -ne $r.status)) { AddEvent $db $msg $statusLevel }
     if (![string]::IsNullOrWhiteSpace($telegramText)) { [void](SendTelegram $db $telegramText); MarkNotifySent $r $r.status }
   }
@@ -495,6 +939,7 @@ Log ("Monitoring started: $url")
 
 $nextSiteCheckAt = (Get-Date).AddSeconds((GetSiteCheckInterval $db0))
 $nextDeviceCheckAt = (Get-Date).AddSeconds((GetDeviceCheckInterval $db0))
+$nextTelegramPollAt = (Get-Date).AddSeconds(2)
 
 while ($listener.IsListening) {
   $now = Get-Date
@@ -511,6 +956,16 @@ while ($listener.IsListening) {
       Log ('Background check error: ' + $_.Exception.Message)
       $nextSiteCheckAt = (Get-Date).AddSeconds(30)
       $nextDeviceCheckAt = (Get-Date).AddSeconds(30)
+    }
+  }
+  if ($now -ge $nextTelegramPollAt) {
+    try {
+      $telegramDb = Load-Db
+      if (ProcessTelegramCommands $telegramDb) { Save-Db $telegramDb }
+      $nextTelegramPollAt = (Get-Date).AddSeconds((GetTelegramCommandInterval $telegramDb))
+    } catch {
+      Log ('Telegram poll error: ' + $_.Exception.Message)
+      $nextTelegramPollAt = (Get-Date).AddSeconds(10)
     }
   }
   $pendingContext = $listener.BeginGetContext($null, $null)
@@ -531,6 +986,16 @@ while ($listener.IsListening) {
         $nextDeviceCheckAt = (Get-Date).AddSeconds(30)
       }
     }
+    if ($now -ge $nextTelegramPollAt) {
+      try {
+        $telegramDb = Load-Db
+        if (ProcessTelegramCommands $telegramDb) { Save-Db $telegramDb }
+        $nextTelegramPollAt = (Get-Date).AddSeconds((GetTelegramCommandInterval $telegramDb))
+      } catch {
+        Log ('Telegram poll error: ' + $_.Exception.Message)
+        $nextTelegramPollAt = (Get-Date).AddSeconds(10)
+      }
+    }
   }
   $ctx = $listener.EndGetContext($pendingContext)
   $path = $ctx.Request.Url.AbsolutePath
@@ -546,7 +1011,7 @@ while ($listener.IsListening) {
           $b = ReadBody $ctx | ConvertFrom-Json
           if ($b.url -notmatch '^https?://') { $b.url = 'https://' + $b.url }
           if ($b.color) { $color = $b.color } else { $color = '#35f0ff' }
-          $db.sites += [pscustomobject]@{ id=NewId; name=$b.name; url=$b.url; color=$color; status='WAIT'; code=0; response=0; checked='-'; lastFailure='Никогда' }
+          $db.sites += [pscustomobject]@{ id=NewId; name=$b.name; url=$b.url; color=$color; status='WAIT'; code=0; response=0; ping=0; dns=@(); ssl=$null; checked='-'; lastFailure='Никогда' }
           Save-Db $db; Log 'Saved: site/add'; Send $ctx '{"ok":true}'; continue
         }
         '^/api/site/update$' {
@@ -554,6 +1019,21 @@ while ($listener.IsListening) {
           if ($b.url -notmatch '^https?://') { $b.url = 'https://' + $b.url }
           foreach ($x in @($db.sites)) { if ($x.id -eq $b.id) { $x.name=$b.name; $x.url=$b.url; if ($b.color) { $x.color=$b.color } } }
           Save-Db $db; Log 'Saved: site/update'; Send $ctx '{"ok":true}'; continue
+        }
+        '^/api/site/move$' {
+          $b = ReadBody $ctx | ConvertFrom-Json
+          $items = @($db.sites)
+          $index = -1
+          for ($i=0; $i -lt $items.Count; $i++) { if ($items[$i].id -eq $b.id) { $index=$i; break } }
+          if ($index -ge 0) {
+            $target = if ([string]$b.direction -eq 'up') { $index-1 } else { $index+1 }
+            if ($target -ge 0 -and $target -lt $items.Count) {
+              $temp=$items[$index]; $items[$index]=$items[$target]; $items[$target]=$temp
+              $db.sites=$items
+              Save-Db $db
+            }
+          }
+          Send $ctx '{"ok":true}'; continue
         }
         '^/api/site/delete$' {
           $b = ReadBody $ctx | ConvertFrom-Json
@@ -566,17 +1046,19 @@ while ($listener.IsListening) {
         '^/api/router/add$' {
           $b = ReadBody $ctx | ConvertFrom-Json
           if ($b.color) { $color = $b.color } else { $color = '#7c5cff' }
-          $port = 0
-          try { if ($null -ne $b.port) { $port = [int]$b.port } } catch { $port = 0 }
+          $ports = @(ParsePorts $b.ports)
+          if ($ports.Count -eq 0 -and $null -ne $b.port) { $ports = @(ParsePorts $b.port) }
+          $port = if ($ports.Count) { [int]$ports[0] } else { 0 }
           $checkType = [string]$b.checkType
           if ($checkType -notin @('ping','tcp','both')) { $checkType = 'ping' }
-          $db.routers += [pscustomobject]@{ id=NewId; name=$b.name; address=$b.address; type=$b.type; color=$color; status='WAIT'; ping=0; port=$port; portOk=$true; checkType=$checkType; checked='-'; lastFailure='Никогда' }
+          $db.routers += [pscustomobject]@{ id=NewId; name=$b.name; address=$b.address; type=$b.type; color=$color; status='WAIT'; ping=0; port=$port; ports=$ports; portOk=$true; portResults=@(); checkType=$checkType; checked='-'; lastFailure='Никогда' }
           Save-Db $db; Log 'Saved: router/add'; Send $ctx '{"ok":true}'; continue
         }
         '^/api/router/update$' {
           $b = ReadBody $ctx | ConvertFrom-Json
-          $port = 0
-          try { if ($null -ne $b.port) { $port = [int]$b.port } } catch { $port = 0 }
+          $ports = @(ParsePorts $b.ports)
+          if ($ports.Count -eq 0 -and $null -ne $b.port) { $ports = @(ParsePorts $b.port) }
+          $port = if ($ports.Count) { [int]$ports[0] } else { 0 }
           $checkType = [string]$b.checkType
           if ($checkType -notin @('ping','tcp','both')) { $checkType = 'ping' }
           foreach ($x in @($db.routers)) {
@@ -586,10 +1068,61 @@ while ($listener.IsListening) {
               if($b.type){$x.type=$b.type}
               if ($b.color) { $x.color=$b.color }
               try { $x.port=$port } catch { $x | Add-Member -NotePropertyName port -NotePropertyValue $port -Force }
+              SetObjectProperty $x 'ports' $ports
+              SetObjectProperty $x 'portResults' @()
               try { $x.checkType=$checkType } catch { $x | Add-Member -NotePropertyName checkType -NotePropertyValue $checkType -Force }
             }
           }
           Save-Db $db; Log 'Saved: router/update'; Send $ctx '{"ok":true}'; continue
+        }
+        '^/api/router/move$' {
+          $b = ReadBody $ctx | ConvertFrom-Json
+          $items = @($db.routers)
+          $index = -1
+          for ($i=0; $i -lt $items.Count; $i++) { if ($items[$i].id -eq $b.id) { $index=$i; break } }
+          if ($index -ge 0) {
+            $target = if ([string]$b.direction -eq 'up') { $index-1 } else { $index+1 }
+            if ($target -ge 0 -and $target -lt $items.Count) {
+              $temp=$items[$index]; $items[$index]=$items[$target]; $items[$target]=$temp
+              $db.routers=$items
+              Save-Db $db
+            }
+          }
+          Send $ctx '{"ok":true}'; continue
+        }
+        '^/api/network/info$' {
+          Send $ctx ((GetLocalNetworkInfo) | ConvertTo-Json -Depth 6)
+          continue
+        }
+        '^/api/network/scan$' {
+          $b = ReadBody $ctx | ConvertFrom-Json
+          $result = InvokeLocalNetworkScan ([string]$b.subnet)
+          Send $ctx ($result | ConvertTo-Json -Depth 8)
+          continue
+        }
+        '^/api/diagnostic$' {
+          $b = ReadBody $ctx | ConvertFrom-Json
+          $kind = [string]$b.kind
+          $diagnosticType = [string]$b.type
+          if ($diagnosticType -notin @('ping','dns','ssl','ports','trace','whois')) { throw 'Unsupported diagnostic type' }
+          $obj = $null
+          $target = ''
+          $portsValue = ''
+          if ($kind -eq 'site') {
+            $obj = @($db.sites | Where-Object { $_.id -eq $b.id } | Select-Object -First 1)
+            if ($obj.Count) { $obj = $obj[0]; $target = [string]$obj.url }
+          } elseif ($kind -eq 'router') {
+            $obj = @($db.routers | Where-Object { $_.id -eq $b.id } | Select-Object -First 1)
+            if ($obj.Count) { $obj = $obj[0]; $target = [string]$obj.address; $portsValue = @($obj.ports) -join ',' }
+          }
+          if ($null -eq $obj -or [string]::IsNullOrWhiteSpace($target)) { throw 'Object not found' }
+          if ($diagnosticType -eq 'ports' -and $kind -eq 'site') {
+            $hostUri = [Uri]$target
+            $portsValue = if ($hostUri.IsDefaultPort) { if ($hostUri.Scheme -eq 'https') { '443' } else { '80' } } else { [string]$hostUri.Port }
+          }
+          $result = InvokeDiagnostic $target $diagnosticType $portsValue
+          Send $ctx ($result | ConvertTo-Json -Depth 12)
+          continue
         }
         '^/api/router/delete$' {
           $b = ReadBody $ctx | ConvertFrom-Json
@@ -609,6 +1142,23 @@ while ($listener.IsListening) {
         }
         '^/api/telegram/test$' {
           $res = SendTelegram $db 'Тестовое сообщение от программы мониторинга. Telegram уведомления работают.'
+          Send $ctx ($res | ConvertTo-Json -Compress)
+          continue
+        }
+        '^/api/telegram/commands/test$' {
+          $b = ReadBody $ctx | ConvertFrom-Json
+          if ($null -ne $b.telegramToken) { $db.settings.telegramToken = [string]$b.telegramToken }
+          if ($null -ne $b.telegramChat) { $db.settings.telegramChat = [string]$b.telegramChat }
+          if ([string]::IsNullOrWhiteSpace([string]$db.settings.telegramToken) -or [string]::IsNullOrWhiteSpace([string]$db.settings.telegramChat)) {
+            Send $ctx '{"ok":false,"error":"Telegram token or chat ID is empty"}'
+            continue
+          }
+          $registered = RegisterTelegramCommands $db
+          if (-not $registered.ok) {
+            Send $ctx ($registered | ConvertTo-Json -Compress)
+            continue
+          }
+          $res = SendTelegram $db (GetTelegramCommandReply $db 'help')
           Send $ctx ($res | ConvertTo-Json -Compress)
           continue
         }
@@ -643,6 +1193,17 @@ while ($listener.IsListening) {
           $db.settings.autoOpen = [bool]$b.autoOpen
           $db.settings.telegramToken = $b.telegramToken
           $db.settings.telegramChat = $b.telegramChat
+          if ($null -ne $b.telegramCommandsEnabled) {
+            $wasEnabled = ($db.settings.telegramCommandsEnabled -eq $true)
+            $db.settings.telegramCommandsEnabled = [bool]$b.telegramCommandsEnabled
+            if (-not $wasEnabled -and $db.settings.telegramCommandsEnabled) { $db.settings.telegramUpdateOffset = 0 }
+          }
+          if ($null -ne $b.telegramCommandInterval) {
+            $commandInterval = [int]$b.telegramCommandInterval
+            if ($commandInterval -lt 3) { $commandInterval = 3 }
+            if ($commandInterval -gt 60) { $commandInterval = 60 }
+            $db.settings.telegramCommandInterval = $commandInterval
+          }
           $db.settings.uiScale = [double]$b.uiScale
           $db.settings.textScale = [double]$b.textScale
           if ($null -ne $b.autoRefresh) { $db.settings.autoRefresh = [int]$b.autoRefresh }
@@ -674,6 +1235,7 @@ while ($listener.IsListening) {
           Save-Db $db
           $nextSiteCheckAt = (Get-Date).AddSeconds((GetSiteCheckInterval $db))
           $nextDeviceCheckAt = (Get-Date).AddSeconds((GetDeviceCheckInterval $db))
+          $nextTelegramPollAt = (Get-Date).AddSeconds(1)
           Log 'Saved: settings'; Send $ctx '{"ok":true}'; continue
         }
         '^/api/graph/add$' {

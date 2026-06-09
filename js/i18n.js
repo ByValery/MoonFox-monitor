@@ -4,7 +4,7 @@
     ['О программе MoonFox monitor','About MoonFox monitor'],
     ['🏠 Обзор','🏠 Overview'],['🌐 Сайты','🌐 Sites'],['🖧 Устройства','🖧 Devices'],['📈 Графики','📈 Charts'],['🔔 События','🔔 Events'],['⚙️ Настройки','⚙️ Settings'],
     ['Обзор','Overview'],['Сайты','Sites'],['Устройства','Devices'],['Графики','Charts'],['События','Events'],['Настройки','Settings'],
-    ['Система работает','System is running'],['Последняя проверка','Last check'],['Аптайм','Uptime'],['Версия 0.5.0','Version 0.5.0'],
+    ['Система работает','System is running'],['Последняя проверка','Last check'],['Аптайм','Uptime'],['Версия 0.6.0','Version 0.6.0'],
     ['Общая панель состояния мониторинга','Monitoring status dashboard'],
     ['Редактирование и проверка сайтов','Manage and check websites'],
     ['Ping-проверка роутеров, серверов, NAS, ПК и IP-узлов','Ping checks for routers, servers, NAS, PCs and IP nodes'],
@@ -27,7 +27,9 @@
     ['Добавь роутер, сервер, NAS, ПК или любой IP-узел. Порт необязательный: нужен для проверки службы, например 22, 80, 443, 3389.','Add a router, server, NAS, PC or any IP node. A port is optional and can be used to check a service such as 22, 80, 443 or 3389.'],
     ['Название, например: MikroTik, VPS, NAS','Name, for example: MikroTik, VPS, NAS'],['IP или адрес, например: 192.168.1.1','IP or address, for example: 192.168.1.1'],
     ['Например: MikroTik, VPS, NAS','For example: MikroTik, VPS, NAS'],['Например: 192.168.1.1','For example: 192.168.1.1'],
-    ['Порт, необязательно','Port, optional'],['Тип проверки','Check type'],['TCP-порт','TCP port'],['Добавить устройство','Add device'],
+    ['Порт, необязательно','Port, optional'],['Порты, необязательно','Ports, optional'],['Порты: 22, 80, 443','Ports: 22, 80, 443'],['Например: 22, 80, 443','For example: 22, 80, 443'],
+    ['Тип проверки','Check type'],['TCP-порт','TCP port'],['TCP-порты','TCP ports'],['Добавить устройство','Add device'],
+    ['Добавь роутер, сервер, NAS, ПК или любой IP-узел. Можно указать несколько портов через запятую, например 22, 80, 443.','Add a router, server, NAS, PC or any IP node. You can specify multiple comma-separated ports, for example 22, 80, 443.'],
     ['+ Добавить график','+ Add chart'],['Последний час','Last hour'],['Последние 2 часа','Last 2 hours'],['Последние 6 часов','Last 6 hours'],
     ['Последние 24 часа','Last 24 hours'],['Последняя неделя','Last week'],['Все','All'],['Только важные','Important only'],
     ['Ошибки','Errors'],['Предупреждения','Warnings'],['Восстановления','Recoveries'],['Инфо','Info'],['Очистить события','Clear events'],
@@ -63,7 +65,7 @@
     ['Интервал автообновления','Refresh interval'],['Секунд','Seconds'],['Например: 45','For example: 45'],['Минимум 5 секунд, максимум 3600 секунд.','Minimum 5 seconds, maximum 3600 seconds.'],
     ['Логотип MoonFox monitor','MoonFox monitor logo'],['Разработчик:','Developer:'],['Закрыть','Close'],
     ['Название','Name'],['Адрес','Address'],['Статус','Status'],['Код','Code'],['Ответ','Response'],['Проверка','Check'],['Действия','Actions'],
-    ['Последний сбой','Last failure'],['Порт','Port'],['Редактировать','Edit'],['Удалить','Delete'],
+    ['Последний сбой','Last failure'],['Порт','Port'],['Порты','Ports'],['Редактировать','Edit'],['Удалить','Delete'],['Диагностика','Diagnostics'],
     ['Доступен','Available'],['Медленно','Slow'],['Ожидает проверки','Waiting for check'],['Открыт','Open'],['Закрыт','Closed'],
     ['🟢 Доступен','🟢 Available'],['🟡 Медленно','🟡 Slow'],['🔴 Недоступен','🔴 Unavailable'],['🟢 Открыт','🟢 Open'],['🔴 Закрыт','🔴 Closed'],
     ['Никогда','Never'],['Ошибка','Error'],['Предупреждение','Warning'],['Восстановлено','Recovered'],
@@ -91,6 +93,31 @@
     ['Файл не похож на JSON-конфигурацию','The file is not a valid JSON configuration'],
     ['Импортировать конфигурацию? Текущие сайты, устройства, графики и история будут заменены.','Import this configuration? Current websites, devices, charts and history will be replaced.'],
     ['Конфигурация импортирована.','Configuration imported.']
+    ,['Выберите проверку.','Select a diagnostic test.'],['Выполняется проверка...','Running diagnostic test...'],
+    ['через прокси','via proxy'],['Ответ быстрее 1 миллисекунды','Response is faster than 1 millisecond'],
+    ['DNS использует Fake-IP 198.18.0.0/15','DNS uses Fake-IP 198.18.0.0/15'],
+    ['Реальный ping скрыт VPN/прокси.','The real ping is hidden by the VPN/proxy.'],
+    ['RDAP-данные для этого домена или IP не найдены.','No RDAP data was found for this domain or IP address.'],['Запрос','Query'],
+    ['DNS-записи не найдены.','No DNS records found.'],['Порты не указаны.','No ports specified.'],['Нет данных.','No data.'],
+    ['Действителен','Valid'],['Действует до','Valid until'],['Издатель','Issuer'],['Субъект','Subject'],['Домен','Domain'],['События','Events'],
+    ['Порты должны быть числами от 1 до 65535','Ports must be numbers from 1 to 65535'],['Ошибка SSL','SSL error'],['дн.','days'],
+    ['Поиск устройств в локальной сети','Find devices on the local network'],['Ручное сканирование частной IPv4-подсети.','Manual scan of a private IPv4 subnet.'],
+    ['Сканировать локальную сеть','Scan local network'],['Сканирование локальной сети','Local network scan'],
+    ['Проверяются только адреса выбранной частной подсети /24.','Only addresses in the selected private /24 subnet are checked.'],
+    ['Начать сканирование','Start scan'],['Укажите подсеть и запустите поиск.','Enter a subnet and start the scan.'],
+    ['Определение локальной сети...','Detecting local network...'],['Подсеть определена. Нажмите «Начать сканирование».','Subnet detected. Click “Start scan”.'],
+    ['Не удалось определить подсеть автоматически. Введите её вручную.','The subnet could not be detected automatically. Enter it manually.'],
+    ['Сканирование выполняется, это может занять несколько секунд...','Scanning is in progress. This may take a few seconds...'],
+    ['Найдено устройств:','Devices found:'],['Проверено адресов:','Addresses checked:'],['IP-адрес','IP address'],['MAC-адрес','MAC address'],
+    ['Уже добавлено','Already added'],['Активные устройства не найдены. Некоторые устройства могут блокировать Ping.','No active devices were found. Some devices may block Ping.'],
+    ['Укажите частную IPv4-подсеть в формате 192.168.1.0/24','Enter a private IPv4 subnet in the format 192.168.1.0/24'],
+    ['Некорректный IPv4-адрес','Invalid IPv4 address'],['Разрешено сканирование только частных локальных IPv4-подсетей','Only private local IPv4 subnets can be scanned'],
+    ['Показывать','Show'],['Поднять выше','Move up'],['Опустить ниже','Move down'],['Telegram: стикеры MoonFox','Telegram: MoonFox stickers'],
+    ['Разрешить ответные команды бота','Enable bot commands'],['Проверять новые команды каждые, сек','Check for new commands every, sec'],
+    ['Бот отвечает только сохранённому Telegram chat ID. Команды: /status, /sites, /devices, /problems, /check, /help.','The bot responds only to the saved Telegram chat ID. Commands: /status, /sites, /devices, /problems, /check, /help.'],
+    ['Проверить команды бота','Test bot commands'],['Введите Telegram bot token и chat ID.','Enter the Telegram bot token and chat ID.'],
+    ['Команды зарегистрированы. Бот отправил список команд в Telegram.','Commands registered. The bot sent the command list to Telegram.'],
+    ['Не удалось проверить команды:','Could not test commands:']
   ];
 
   const ruToEn = new Map(pairs);
@@ -113,11 +140,13 @@
       text=text
         .replace(/(^|\s)мс(?=$|\s|[,.])/g,'$1ms').replace(/(^|\s)сек(?=$|\s|[,.])/g,'$1sec')
         .replace(/(\d+)ч\s*(\d+)м/g,'$1h $2m').replace(/(\d+)м(?=$|\s)/g,'$1m')
+        .replace(/дн\./g,'days')
         .replace(/Онлайн:/g,'Online:').replace(/Доступно:/g,'Available:').replace(/медленно:/g,'slow:')
         .replace(/Сайты:/g,'Sites:').replace(/Устройства:/g,'Devices:').replace(/Критичных:/g,'Critical:')
         .replace(/Проверка:/g,'Check:').replace(/^Сайт «/,'Website “').replace(/^Устройство «/,'Device “').replace(/»:/g,'”:')
         .replace(/Порт свободен:/g,'Port is available:').replace(/Порт занят:/g,'Port is in use:')
         .replace(/Не удалось отправить Telegram:/g,'Could not send Telegram message:')
+        .replace(/DNS вернул Fake-IP/g,'DNS returned Fake-IP').replace(/Реальный ping скрыт VPN\/прокси\./g,'The real ping is hidden by the VPN/proxy.')
         .replace(/Сайт "/g,'Website "').replace(/Устройство "/g,'Device "')
         .replace(/ снова доступен/g,' is available again').replace(/ снова доступно/g,' is available again')
         .replace(/ критично медленный/g,' is critically slow').replace(/ критично медленное/g,' is critically slow')
@@ -128,11 +157,13 @@
       text=text
         .replace(/\bms\b/g,'мс').replace(/\bsec\b/g,'сек')
         .replace(/(\d+)h\s*(\d+)m/g,'$1ч $2м').replace(/(\d+)m\b/g,'$1м')
+        .replace(/days/g,'дн.')
         .replace(/Online:/g,'Онлайн:').replace(/Available:/g,'Доступно:').replace(/slow:/g,'медленно:')
         .replace(/Sites:/g,'Сайты:').replace(/Devices:/g,'Устройства:').replace(/Critical:/g,'Критичных:')
         .replace(/Check:/g,'Проверка:').replace(/^Website “/,'Сайт «').replace(/^Device “/,'Устройство «').replace(/”:/g,'»:')
         .replace(/Port is available:/g,'Порт свободен:').replace(/Port is in use:/g,'Порт занят:')
         .replace(/Could not send Telegram message:/g,'Не удалось отправить Telegram:')
+        .replace(/DNS returned Fake-IP/g,'DNS вернул Fake-IP').replace(/The real ping is hidden by the VPN\/proxy\./g,'Реальный ping скрыт VPN/прокси.')
         .replace(/Website "/g,'Сайт "').replace(/Device "/g,'Устройство "')
         .replace(/ is available again/g,' снова доступен').replace(/ is critically slow/g,' критично медленный')
         .replace(/ is responding slowly/g,' отвечает медленно').replace(/ has high ping/g,' высокий ping')
