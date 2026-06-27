@@ -6,7 +6,7 @@ $dbPath = Join-Path $root 'data\db.json'
 $dbBackupPath = Join-Path $root 'data\db.backup.json'
 $appTitle = 'MoonFox monitor'
 $appSubtitle = 'Следит за системой, пока ты спишь.'
-$appVersion = '0.6.0'
+$appVersion = '0.6.5'
 
 function Log($msg) {
   $ts = (Get-Date).ToString('HH:mm:ss')
@@ -18,7 +18,7 @@ function Ensure-Db {
   if (!(Test-Path $dataDir)) { New-Item -ItemType Directory -Force -Path $dataDir | Out-Null }
   if (!(Test-Path $dbPath)) {
     $json = @'
-{"settings":{"title":"MoonFox monitor","subtitle":"Следит за системой, пока ты спишь.","version":"0.6.0","language":"ru","interval":30,"timeout":10,"showMs":true,"autoOpen":true,"telegramToken":"","telegramChat":"","uiScale":0.72,"textScale":0.82,"autoRefresh":0,"port":8000,"siteWarn":1000,"siteCrit":3000,"deviceWarn":150,"deviceCrit":300},"sites":[],"routers":[],"events":[],"history":[],"graphs":[{"id":"main_graph","title":"Общий график","type":"site_response","style":"line","height":260,"note":""}]}
+{"settings":{"title":"MoonFox monitor","subtitle":"Следит за системой, пока ты спишь.","version":"0.6.5","language":"ru","interval":30,"timeout":10,"showMs":true,"autoOpen":true,"telegramEnabled":true,"telegramToken":"","telegramChat":"","uiScale":0.72,"textScale":0.82,"autoRefresh":0,"port":8000,"siteWarn":1000,"siteCrit":3000,"deviceWarn":150,"deviceCrit":300,"siteOverviewGraphId":"__default","deviceOverviewGraphId":"__default","siteOverviewRangeMinutes":60,"deviceOverviewRangeMinutes":60,"siteOverviewYMax":0,"deviceOverviewYMax":0,"historyRetentionMode":"records","historyRetentionDays":7,"historyMaxRecords":500},"sites":[],"routers":[],"events":[],"history":[],"graphs":[{"id":"main_graph","title":"Общий график","type":"site_response","style":"line","height":260,"rangeMinutes":60,"yMax":0,"note":"","objectIds":[]}]}
 '@
     [IO.File]::WriteAllText($dbPath, $json, [Text.UTF8Encoding]::new($false))
   }
@@ -43,7 +43,17 @@ function Load-Db {
   if ($null -eq $db.events) { $db | Add-Member -NotePropertyName events -NotePropertyValue @() }
   if ($null -eq $db.history) { $db | Add-Member -NotePropertyName history -NotePropertyValue @() }
   if ($null -eq $db.graphs) { $db | Add-Member -NotePropertyName graphs -NotePropertyValue @() }
+  $needsSave = $false
+  if ($null -eq $db.settings.siteOverviewYMax -or $null -eq $db.settings.deviceOverviewYMax) { $needsSave = $true }
   Ensure-SettingsDefaults $db
+  foreach ($g in @($db.graphs)) {
+    if ($null -eq $g.objectIds) { SetObjectProperty $g 'objectIds' @(); $needsSave = $true }
+    if ($null -eq $g.rangeMinutes) { SetObjectProperty $g 'rangeMinutes' 60; $needsSave = $true }
+    if ($null -eq $g.yMax) { SetObjectProperty $g 'yMax' 0; $needsSave = $true }
+  }
+  foreach ($s in @($db.sites)) { if ($null -eq $s.paused) { SetObjectProperty $s 'paused' $false; $needsSave = $true } }
+  foreach ($r in @($db.routers)) { if ($null -eq $r.paused) { SetObjectProperty $r 'paused' $false; $needsSave = $true } }
+  if ($needsSave) { Save-Db $db }
   return $db
 }
 
@@ -98,7 +108,33 @@ function AddEvent($db, $msg, $level) {
   $db.events = $arr
 }
 
+function Prune-History($db) {
+  if ($null -eq $db.history) { $db.history = @(); return }
+  $mode = [string]$db.settings.historyRetentionMode
+  if ([string]::IsNullOrWhiteSpace($mode)) { $mode = 'records' }
+  $items = @($db.history)
+  if ($mode -eq 'days') {
+    $days = GetSettingInt $db 'historyRetentionDays' 7
+    if ($days -lt 1) { $days = 1 }
+    if ($days -gt 365) { $days = 365 }
+    $cutoff = (Get-Date).AddDays(-$days)
+    $items = @($items | Where-Object {
+      try {
+        if ([string]::IsNullOrWhiteSpace([string]$_.ts)) { $true }
+        else { ([datetime]::Parse([string]$_.ts)) -ge $cutoff }
+      } catch { $true }
+    })
+  }
+  $maxRecords = GetSettingInt $db 'historyMaxRecords' 500
+  if ($maxRecords -lt 50) { $maxRecords = 50 }
+  if ($maxRecords -gt 100000) { $maxRecords = 100000 }
+  $db.history = @($items | Select-Object -Last $maxRecords)
+}
+
 function SendTelegram($db, $text) {
+  if ($db.settings.telegramEnabled -eq $false) {
+    return [pscustomobject]@{ ok=$false; error='Telegram notifications are disabled' }
+  }
   $token = ''
   $chat = ''
   try { $token = [string]$db.settings.telegramToken } catch {}
@@ -211,6 +247,7 @@ function GetTelegramCommandReply($db, $command) {
 }
 
 function ProcessTelegramCommands($db) {
+  if ($db.settings.telegramEnabled -eq $false) { return $false }
   if ($db.settings.telegramCommandsEnabled -ne $true) { return $false }
   $token = [string]$db.settings.telegramToken
   $allowedChat = [string]$db.settings.telegramChat
@@ -266,7 +303,18 @@ function Fix-ImportedDb($imported, $currentSettings) {
   if ($null -eq $imported.events) { $imported | Add-Member -NotePropertyName events -NotePropertyValue @() -Force }
   if ($null -eq $imported.history) { $imported | Add-Member -NotePropertyName history -NotePropertyValue @() -Force }
   if ($null -eq $imported.graphs -or @($imported.graphs).Count -eq 0) {
-    $imported | Add-Member -NotePropertyName graphs -NotePropertyValue @([pscustomobject]@{ id='main_graph'; title='Общий график'; type='site_response'; style='line'; height=260; note='' }) -Force
+    $imported | Add-Member -NotePropertyName graphs -NotePropertyValue @([pscustomobject]@{ id='main_graph'; title='Общий график'; type='site_response'; style='line'; height=260; rangeMinutes=60; yMax=0; note=''; objectIds=@() }) -Force
+  }
+  foreach ($g in @($imported.graphs)) {
+    if ($null -eq $g.objectIds) { $g | Add-Member -NotePropertyName objectIds -NotePropertyValue @() -Force }
+    if ($null -eq $g.rangeMinutes) { $g | Add-Member -NotePropertyName rangeMinutes -NotePropertyValue 60 -Force }
+    if ($null -eq $g.yMax) { $g | Add-Member -NotePropertyName yMax -NotePropertyValue 0 -Force }
+  }
+  foreach ($s in @($imported.sites)) {
+    if ($null -eq $s.paused) { $s | Add-Member -NotePropertyName paused -NotePropertyValue $false -Force }
+  }
+  foreach ($r in @($imported.routers)) {
+    if ($null -eq $r.paused) { $r | Add-Member -NotePropertyName paused -NotePropertyValue $false -Force }
   }
 
   # Keep program port and browser-open setting from current database if imported config does not have them.
@@ -346,6 +394,7 @@ function Ensure-SettingsDefaults($db) {
   SetObjectProperty $db.settings 'subtitle' $appSubtitle
   SetObjectProperty $db.settings 'version' $appVersion
   EnsureSetting $db 'language' 'ru'
+  EnsureSetting $db 'telegramEnabled' $true
   EnsureSetting $db 'notifyDown' $true
   EnsureSetting $db 'notifySlow' $true
   EnsureSetting $db 'notifyRecovered' $true
@@ -362,6 +411,15 @@ function Ensure-SettingsDefaults($db) {
   EnsureSetting $db 'deviceInterval' (GetCheckInterval $db)
   EnsureSetting $db 'siteOverviewStyle' 'line'
   EnsureSetting $db 'deviceOverviewStyle' 'line'
+  EnsureSetting $db 'siteOverviewGraphId' '__default'
+  EnsureSetting $db 'deviceOverviewGraphId' '__default'
+  EnsureSetting $db 'siteOverviewRangeMinutes' 60
+  EnsureSetting $db 'deviceOverviewRangeMinutes' 60
+  EnsureSetting $db 'siteOverviewYMax' 0
+  EnsureSetting $db 'deviceOverviewYMax' 0
+  EnsureSetting $db 'historyRetentionMode' 'records'
+  EnsureSetting $db 'historyRetentionDays' 7
+  EnsureSetting $db 'historyMaxRecords' 500
   EnsureSetting $db 'telegramCommandsEnabled' $false
   EnsureSetting $db 'telegramCommandInterval' 5
   EnsureSetting $db 'telegramUpdateOffset' 0
@@ -758,6 +816,12 @@ function CheckAll($db, $checkSites=$true, $checkDevices=$true) {
 
   if ($checkSites) {
   foreach ($s in @($db.sites)) {
+    if ($null -eq $s.paused) { SetObjectProperty $s 'paused' $false }
+    if ($s.paused -eq $true) {
+      $s.status = 'PAUSED'
+      $s.checked = 'Пауза'
+      continue
+    }
     $prevStatus = [string]$s.status
     $sw = [Diagnostics.Stopwatch]::StartNew()
     $ok = $false
@@ -829,6 +893,12 @@ function CheckAll($db, $checkSites=$true, $checkDevices=$true) {
 
   if ($checkDevices) {
   foreach ($r in @($db.routers)) {
+    if ($null -eq $r.paused) { SetObjectProperty $r 'paused' $false }
+    if ($r.paused -eq $true) {
+      $r.status = 'PAUSED'
+      $r.checked = 'Пауза'
+      continue
+    }
     $prevStatus = [string]$r.status
     $checkType = 'ping'
     try { if ($r.checkType) { $checkType = [string]$r.checkType } } catch {}
@@ -911,7 +981,7 @@ function CheckAll($db, $checkSites=$true, $checkDevices=$true) {
   }
   }
 
-  $db.history = @($db.history | Select-Object -Last 500)
+  Prune-History $db
   Log ('Check finished. Sites: ' + @($db.sites).Count + ', devices: ' + @($db.routers).Count)
 }
 
@@ -1011,13 +1081,13 @@ while ($listener.IsListening) {
           $b = ReadBody $ctx | ConvertFrom-Json
           if ($b.url -notmatch '^https?://') { $b.url = 'https://' + $b.url }
           if ($b.color) { $color = $b.color } else { $color = '#35f0ff' }
-          $db.sites += [pscustomobject]@{ id=NewId; name=$b.name; url=$b.url; color=$color; status='WAIT'; code=0; response=0; ping=0; dns=@(); ssl=$null; checked='-'; lastFailure='Никогда' }
+          $db.sites += [pscustomobject]@{ id=NewId; name=$b.name; url=$b.url; color=$color; paused=$false; status='WAIT'; code=0; response=0; ping=0; dns=@(); ssl=$null; checked='-'; lastFailure='Никогда' }
           Save-Db $db; Log 'Saved: site/add'; Send $ctx '{"ok":true}'; continue
         }
         '^/api/site/update$' {
           $b = ReadBody $ctx | ConvertFrom-Json
           if ($b.url -notmatch '^https?://') { $b.url = 'https://' + $b.url }
-          foreach ($x in @($db.sites)) { if ($x.id -eq $b.id) { $x.name=$b.name; $x.url=$b.url; if ($b.color) { $x.color=$b.color } } }
+          foreach ($x in @($db.sites)) { if ($x.id -eq $b.id) { $x.name=$b.name; $x.url=$b.url; if ($b.color) { $x.color=$b.color }; if ($null -ne $b.paused) { SetObjectProperty $x 'paused' ([bool]$b.paused); if ([bool]$b.paused) { $x.status='PAUSED'; $x.checked='Пауза' } elseif ($x.status -eq 'PAUSED') { $x.status='WAIT'; $x.checked='-' } } } }
           Save-Db $db; Log 'Saved: site/update'; Send $ctx '{"ok":true}'; continue
         }
         '^/api/site/move$' {
@@ -1035,6 +1105,17 @@ while ($listener.IsListening) {
           }
           Send $ctx '{"ok":true}'; continue
         }
+        '^/api/site/pause$' {
+          $b = ReadBody $ctx | ConvertFrom-Json
+          foreach ($x in @($db.sites)) {
+            if ($x.id -eq $b.id) {
+              SetObjectProperty $x 'paused' ([bool]$b.paused)
+              if ([bool]$b.paused) { $x.status='PAUSED'; $x.checked='Пауза' }
+              elseif ($x.status -eq 'PAUSED') { $x.status='WAIT'; $x.checked='-' }
+            }
+          }
+          Save-Db $db; Log 'Saved: site/pause'; Send $ctx '{"ok":true}'; continue
+        }
         '^/api/site/delete$' {
           $b = ReadBody $ctx | ConvertFrom-Json
           $deletedName = $null
@@ -1051,7 +1132,7 @@ while ($listener.IsListening) {
           $port = if ($ports.Count) { [int]$ports[0] } else { 0 }
           $checkType = [string]$b.checkType
           if ($checkType -notin @('ping','tcp','both')) { $checkType = 'ping' }
-          $db.routers += [pscustomobject]@{ id=NewId; name=$b.name; address=$b.address; type=$b.type; color=$color; status='WAIT'; ping=0; port=$port; ports=$ports; portOk=$true; portResults=@(); checkType=$checkType; checked='-'; lastFailure='Никогда' }
+          $db.routers += [pscustomobject]@{ id=NewId; name=$b.name; address=$b.address; type=$b.type; color=$color; paused=$false; status='WAIT'; ping=0; port=$port; ports=$ports; portOk=$true; portResults=@(); checkType=$checkType; checked='-'; lastFailure='Никогда' }
           Save-Db $db; Log 'Saved: router/add'; Send $ctx '{"ok":true}'; continue
         }
         '^/api/router/update$' {
@@ -1067,6 +1148,7 @@ while ($listener.IsListening) {
               $x.address=$b.address
               if($b.type){$x.type=$b.type}
               if ($b.color) { $x.color=$b.color }
+              if ($null -ne $b.paused) { SetObjectProperty $x 'paused' ([bool]$b.paused); if ([bool]$b.paused) { $x.status='PAUSED'; $x.checked='Пауза' } elseif ($x.status -eq 'PAUSED') { $x.status='WAIT'; $x.checked='-' } }
               try { $x.port=$port } catch { $x | Add-Member -NotePropertyName port -NotePropertyValue $port -Force }
               SetObjectProperty $x 'ports' $ports
               SetObjectProperty $x 'portResults' @()
@@ -1089,6 +1171,17 @@ while ($listener.IsListening) {
             }
           }
           Send $ctx '{"ok":true}'; continue
+        }
+        '^/api/router/pause$' {
+          $b = ReadBody $ctx | ConvertFrom-Json
+          foreach ($x in @($db.routers)) {
+            if ($x.id -eq $b.id) {
+              SetObjectProperty $x 'paused' ([bool]$b.paused)
+              if ([bool]$b.paused) { $x.status='PAUSED'; $x.checked='Пауза' }
+              elseif ($x.status -eq 'PAUSED') { $x.status='WAIT'; $x.checked='-' }
+            }
+          }
+          Save-Db $db; Log 'Saved: router/pause'; Send $ctx '{"ok":true}'; continue
         }
         '^/api/network/info$' {
           Send $ctx ((GetLocalNetworkInfo) | ConvertTo-Json -Depth 6)
@@ -1149,6 +1242,10 @@ while ($listener.IsListening) {
           $b = ReadBody $ctx | ConvertFrom-Json
           if ($null -ne $b.telegramToken) { $db.settings.telegramToken = [string]$b.telegramToken }
           if ($null -ne $b.telegramChat) { $db.settings.telegramChat = [string]$b.telegramChat }
+          if ($db.settings.telegramEnabled -eq $false) {
+            Send $ctx '{"ok":false,"error":"Telegram notifications are disabled"}'
+            continue
+          }
           if ([string]::IsNullOrWhiteSpace([string]$db.settings.telegramToken) -or [string]::IsNullOrWhiteSpace([string]$db.settings.telegramChat)) {
             Send $ctx '{"ok":false,"error":"Telegram token or chat ID is empty"}'
             continue
@@ -1171,7 +1268,7 @@ while ($listener.IsListening) {
           $db.routers = @()
           $db.history = @()
           $db.events = @()
-          $db.graphs = @([pscustomobject]@{ id='main_graph'; title='Общий график'; type='site_response'; style='line'; height=260; note='' })
+          $db.graphs = @([pscustomobject]@{ id='main_graph'; title='Общий график'; type='site_response'; style='line'; height=260; rangeMinutes=60; yMax=0; note=''; objectIds=@() })
           Save-Db $db; Log 'Saved: reset/all'; Send $ctx '{"ok":true}'; continue
         }
         '^/api/import/config$' {
@@ -1191,6 +1288,7 @@ while ($listener.IsListening) {
           if ($null -ne $b.port) { $db.settings.port = [int]$b.port }
           $db.settings.showMs = [bool]$b.showMs
           $db.settings.autoOpen = [bool]$b.autoOpen
+          if ($null -ne $b.telegramEnabled) { $db.settings.telegramEnabled = [bool]$b.telegramEnabled }
           $db.settings.telegramToken = $b.telegramToken
           $db.settings.telegramChat = $b.telegramChat
           if ($null -ne $b.telegramCommandsEnabled) {
@@ -1223,8 +1321,47 @@ while ($listener.IsListening) {
           if ($null -ne $b.siteRepeatMinutes) { $db.settings.siteRepeatMinutes = [int]$b.siteRepeatMinutes }
           if ($null -ne $b.deviceRepeatMinutes) { $db.settings.deviceRepeatMinutes = [int]$b.deviceRepeatMinutes }
           if ($null -ne $b.failureConfirmChecks) { $db.settings.failureConfirmChecks = [int]$b.failureConfirmChecks }
+          if ($null -ne $b.historyRetentionMode -and [string]$b.historyRetentionMode -in @('records','days')) { $db.settings.historyRetentionMode = [string]$b.historyRetentionMode }
+          if ($null -ne $b.historyRetentionDays) {
+            $days = [int]$b.historyRetentionDays
+            if ($days -lt 1) { $days = 1 }
+            if ($days -gt 365) { $days = 365 }
+            $db.settings.historyRetentionDays = $days
+          }
+          if ($null -ne $b.historyMaxRecords) {
+            $maxRecords = [int]$b.historyMaxRecords
+            if ($maxRecords -lt 50) { $maxRecords = 50 }
+            if ($maxRecords -gt 100000) { $maxRecords = 100000 }
+            $db.settings.historyMaxRecords = $maxRecords
+          }
           if ($null -ne $b.siteOverviewStyle -and [string]$b.siteOverviewStyle -in @('line','bar','pie')) { $db.settings.siteOverviewStyle = [string]$b.siteOverviewStyle }
           if ($null -ne $b.deviceOverviewStyle -and [string]$b.deviceOverviewStyle -in @('line','bar','pie')) { $db.settings.deviceOverviewStyle = [string]$b.deviceOverviewStyle }
+          if ($null -ne $b.siteOverviewGraphId) { $db.settings.siteOverviewGraphId = [string]$b.siteOverviewGraphId }
+          if ($null -ne $b.deviceOverviewGraphId) { $db.settings.deviceOverviewGraphId = [string]$b.deviceOverviewGraphId }
+          if ($null -ne $b.siteOverviewRangeMinutes) {
+            $siteRange = [int]$b.siteOverviewRangeMinutes
+            if ($siteRange -lt 1) { $siteRange = 1 }
+            if ($siteRange -gt 10080) { $siteRange = 10080 }
+            $db.settings.siteOverviewRangeMinutes = $siteRange
+          }
+          if ($null -ne $b.deviceOverviewRangeMinutes) {
+            $deviceRange = [int]$b.deviceOverviewRangeMinutes
+            if ($deviceRange -lt 1) { $deviceRange = 1 }
+            if ($deviceRange -gt 10080) { $deviceRange = 10080 }
+            $db.settings.deviceOverviewRangeMinutes = $deviceRange
+          }
+          if ($null -ne $b.siteOverviewYMax) {
+            $siteYMax = [int]$b.siteOverviewYMax
+            if ($siteYMax -lt 0) { $siteYMax = 0 }
+            if ($siteYMax -gt 1000000) { $siteYMax = 1000000 }
+            $db.settings.siteOverviewYMax = $siteYMax
+          }
+          if ($null -ne $b.deviceOverviewYMax) {
+            $deviceYMax = [int]$b.deviceOverviewYMax
+            if ($deviceYMax -lt 0) { $deviceYMax = 0 }
+            if ($deviceYMax -gt 1000000) { $deviceYMax = 1000000 }
+            $db.settings.deviceOverviewYMax = $deviceYMax
+          }
           if ($null -ne $b.themePreset) { $db.settings.themePreset = [string]$b.themePreset }
           if ($null -ne $b.themeAccent) { $db.settings.themeAccent = [string]$b.themeAccent }
           if ($null -ne $b.themeButton) { $db.settings.themeButton = [string]$b.themeButton }
@@ -1232,6 +1369,7 @@ while ($listener.IsListening) {
           if ($null -ne $b.themeBad) { $db.settings.themeBad = [string]$b.themeBad }
           if ($null -ne $b.themeBg) { $db.settings.themeBg = [string]$b.themeBg }
           if ($null -ne $b.themePanel) { $db.settings.themePanel = [string]$b.themePanel }
+          Prune-History $db
           Save-Db $db
           $nextSiteCheckAt = (Get-Date).AddSeconds((GetSiteCheckInterval $db))
           $nextDeviceCheckAt = (Get-Date).AddSeconds((GetDeviceCheckInterval $db))
@@ -1240,12 +1378,26 @@ while ($listener.IsListening) {
         }
         '^/api/graph/add$' {
           $b = ReadBody $ctx | ConvertFrom-Json
-          $db.graphs += [pscustomobject]@{ id=NewId; title=$b.title; type=$b.type; style=$b.style; height=[int]$b.height; note=$b.note }
+          $objectIds = @($b.objectIds | ForEach-Object { [string]$_ } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+          $rangeMinutes = if ($null -ne $b.rangeMinutes) { [int]$b.rangeMinutes } else { 60 }
+          if ($rangeMinutes -lt 1) { $rangeMinutes = 60 }
+          if ($rangeMinutes -gt 10080) { $rangeMinutes = 10080 }
+          $yMax = if ($null -ne $b.yMax) { [int]$b.yMax } else { 0 }
+          if ($yMax -lt 0) { $yMax = 0 }
+          if ($yMax -gt 1000000) { $yMax = 1000000 }
+          $db.graphs += [pscustomobject]@{ id=NewId; title=$b.title; type=$b.type; style=$b.style; height=[int]$b.height; rangeMinutes=$rangeMinutes; yMax=$yMax; note=$b.note; objectIds=$objectIds }
           Save-Db $db; Log 'Saved: graph/add'; Send $ctx '{"ok":true}'; continue
         }
         '^/api/graph/update$' {
           $b = ReadBody $ctx | ConvertFrom-Json
-          foreach ($x in @($db.graphs)) { if ($x.id -eq $b.id) { $x.title=$b.title; $x.type=$b.type; $x.style=$b.style; $x.height=[int]$b.height; $x.note=$b.note } }
+          $objectIds = @($b.objectIds | ForEach-Object { [string]$_ } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+          $rangeMinutes = if ($null -ne $b.rangeMinutes) { [int]$b.rangeMinutes } else { 60 }
+          if ($rangeMinutes -lt 1) { $rangeMinutes = 60 }
+          if ($rangeMinutes -gt 10080) { $rangeMinutes = 10080 }
+          $yMax = if ($null -ne $b.yMax) { [int]$b.yMax } else { 0 }
+          if ($yMax -lt 0) { $yMax = 0 }
+          if ($yMax -gt 1000000) { $yMax = 1000000 }
+          foreach ($x in @($db.graphs)) { if ($x.id -eq $b.id) { $x.title=$b.title; $x.type=$b.type; $x.style=$b.style; $x.height=[int]$b.height; $x.note=$b.note; SetObjectProperty $x 'rangeMinutes' $rangeMinutes; SetObjectProperty $x 'yMax' $yMax; SetObjectProperty $x 'objectIds' $objectIds } }
           Save-Db $db; Log 'Saved: graph/update'; Send $ctx '{"ok":true}'; continue
         }
         '^/api/graph/delete$' {

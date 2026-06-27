@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>MoonFox monitor</title>
-  <link rel="stylesheet" href="/css/style.css?v=20260609-6">
+  <link rel="stylesheet" href="/css/style.css?v=20260627-9">
 </head>
 <body>
   <aside class="sidebar">
@@ -29,7 +29,7 @@
       <b class="miniTime" id="lastCheckSide">—</b>
       <small>Аптайм</small>
       <b class="miniTime" id="uptimeSide">0м</b>
-      <small>Версия 0.6.0</small></div>
+      <small>Версия 0.6.5</small></div>
   </aside>
 
   <main class="main">
@@ -54,12 +54,12 @@
         <div class="stat orange notifyStat statWithFox" onclick="toggleNotifyPanel(event)">🔔<span>Уведомления</span><b id="stNotify">0</b><small>Активных</small><img id="notifyFox" class="statFox statFoxNotify" src="/assets/fox-notify-closed.png" alt="" aria-hidden="true"><div id="notifyPanel" class="notifyPanel"></div></div>
       </div>
       <div class="grid two" id="overviewPreviewGrid">
-        <div class="panel overviewPreviewPanel" id="sitePreviewPanel"><div class="panelHead"><h3>Последние проверки сайтов</h3><div class="previewControls"><label>Показывать <select id="sitePreviewCount" onchange="savePreviewCount('site')"><option>1</option><option>2</option><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></label></div></div><div id="sitePreview"></div><a onclick="showPage('sites')">Перейти к сайтам →</a></div>
-        <div class="panel overviewPreviewPanel" id="routerPreviewPanel"><div class="panelHead"><h3>Статус устройств</h3><div class="previewControls"><label>Показывать <select id="devicePreviewCount" onchange="savePreviewCount('device')"><option>1</option><option>2</option><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></label></div></div><div id="routerPreview"></div><a onclick="showPage('routers')">Перейти к устройствам →</a></div>
+        <div class="panel overviewPreviewPanel" id="sitePreviewPanel"><div class="panelHead"><h3>Последние проверки сайтов</h3><div class="previewControls"><label>Показывать <select id="sitePreviewCount" onchange="savePreviewCount('site')"><option>1</option><option>2</option><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></label><button class="columnPickerButton" onclick="toggleColumnPicker(event,'site')">Колонки</button></div></div><div id="siteColumnPicker" class="columnPicker"></div><div id="sitePreview"></div><a onclick="showPage('sites')">Перейти к сайтам →</a></div>
+        <div class="panel overviewPreviewPanel" id="routerPreviewPanel"><div class="panelHead"><h3>Статус устройств</h3><div class="previewControls"><label>Показывать <select id="devicePreviewCount" onchange="savePreviewCount('device')"><option>1</option><option>2</option><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></label><button class="columnPickerButton" onclick="toggleColumnPicker(event,'device')">Колонки</button></div></div><div id="deviceColumnPicker" class="columnPicker"></div><div id="routerPreview"></div><a onclick="showPage('routers')">Перейти к устройствам →</a></div>
       </div>
       <div class="grid two">
-        <div class="panel chartPanel"><div class="panelHead"><h3>Мониторинг сайтов</h3><div class="chartControls"><label class="chartStyleControl">Вид <select id="siteOverviewStyle" onchange="saveOverviewStyle('site')"><option value="line">Линия</option><option value="bar">Столбцы</option><option value="pie">Круговая</option></select></label><label class="chartInterval">Интервал <input id="siteIntervalQuick" type="number" min="1" max="86400" value="30" onchange="saveQuickInterval('site')" onkeydown="if(event.key==='Enter')this.blur()"> сек</label></div></div><div class="chartArea"><div id="legendOverview1" class="chartLegend"></div><canvas id="chartOverview1"></canvas></div></div>
-        <div class="panel chartPanel"><div class="panelHead"><h3>Мониторинг устройств</h3><div class="chartControls"><label class="chartStyleControl">Вид <select id="deviceOverviewStyle" onchange="saveOverviewStyle('device')"><option value="line">Линия</option><option value="bar">Столбцы</option><option value="pie">Круговая</option></select></label><label class="chartInterval">Интервал <input id="deviceIntervalQuick" type="number" min="1" max="86400" value="30" onchange="saveQuickInterval('device')" onkeydown="if(event.key==='Enter')this.blur()"> сек</label></div></div><div class="chartArea"><div id="legendOverview2" class="chartLegend"></div><canvas id="chartOverview2"></canvas></div></div>
+        <div class="panel chartPanel"><div class="panelHead"><h3>Мониторинг сайтов</h3><div class="chartControls"><label class="chartGraphControl">График <select id="siteOverviewGraph" onchange="saveOverviewGraph('site')"></select></label><label class="chartStyleControl">Вид <select id="siteOverviewStyle" onchange="saveOverviewStyle('site')"><option value="line">Линия</option><option value="bar">Столбцы</option><option value="pie">Круговая</option></select></label><label class="chartRangeControl">Период <select id="siteOverviewRangePreset" onchange="saveOverviewRangePreset('site')"><option value="60">1 час</option><option value="180">3 часа</option><option value="360">6 часов</option><option value="720">12 часов</option><option value="1440">24 часа</option><option value="custom">Свой</option></select><input id="siteOverviewRange" type="number" min="1" max="10080" value="60" onchange="saveOverviewRange('site')" onkeydown="if(event.key==='Enter')this.blur()"> мин</label><label class="chartYControl">Макс. мс <input id="siteOverviewYMax" type="number" min="0" max="1000000" value="0" onchange="saveOverviewYMax('site')" onkeydown="if(event.key==='Enter')this.blur()"></label></div></div><div class="chartArea"><div id="legendOverview1" class="chartLegend"></div><canvas id="chartOverview1"></canvas></div></div>
+        <div class="panel chartPanel"><div class="panelHead"><h3>Мониторинг устройств</h3><div class="chartControls"><label class="chartGraphControl">График <select id="deviceOverviewGraph" onchange="saveOverviewGraph('device')"></select></label><label class="chartStyleControl">Вид <select id="deviceOverviewStyle" onchange="saveOverviewStyle('device')"><option value="line">Линия</option><option value="bar">Столбцы</option><option value="pie">Круговая</option></select></label><label class="chartRangeControl">Период <select id="deviceOverviewRangePreset" onchange="saveOverviewRangePreset('device')"><option value="60">1 час</option><option value="180">3 часа</option><option value="360">6 часов</option><option value="720">12 часов</option><option value="1440">24 часа</option><option value="custom">Свой</option></select><input id="deviceOverviewRange" type="number" min="1" max="10080" value="60" onchange="saveOverviewRange('device')" onkeydown="if(event.key==='Enter')this.blur()"> мин</label><label class="chartYControl">Макс. мс <input id="deviceOverviewYMax" type="number" min="0" max="1000000" value="0" onchange="saveOverviewYMax('device')" onkeydown="if(event.key==='Enter')this.blur()"></label></div></div><div class="chartArea"><div id="legendOverview2" class="chartLegend"></div><canvas id="chartOverview2"></canvas></div></div>
       </div>
       <div class="grid two">
         <div class="panel"><h3>События сайтов</h3><div id="eventPreviewSites"></div><a onclick="showPage('events')">Все события →</a></div>
@@ -73,7 +73,7 @@
 
     <section id="sites" class="page"><h2>Сайты</h2><p>Введите название, адрес сайта и выберите цвет линии для графика.</p><div class="form siteForm"><input id="siteName" placeholder="Название, например: Мой сайт"><input id="siteUrl" placeholder="URL, например: https://site.ru"><input id="siteColor" type="color" value="#35f0ff" title="Цвет линии графика"><button onclick="addSite()">Добавить сайт</button></div><div id="sitesTable"></div></section>
     <section id="routers" class="page"><h2>Устройства</h2><p>Добавь роутер, сервер, NAS, ПК или любой IP-узел. Можно указать несколько портов через запятую, например 22, 80, 443.</p><div class="networkScanBar"><div><b>Поиск устройств в локальной сети</b><span>Ручное сканирование частной IPv4-подсети.</span></div><button onclick="openNetworkScan()">Сканировать локальную сеть</button></div><div class="form siteForm deviceForm"><input id="routerName" placeholder="Название, например: MikroTik, VPS, NAS"><input id="routerAddr" placeholder="IP или адрес, например: 192.168.1.1"><input id="routerPort" type="text" inputmode="numeric" placeholder="Порты: 22, 80, 443"><select id="routerCheckType" title="Тип проверки"><option value="ping">Ping</option><option value="tcp">TCP-порты</option><option value="both">Ping + TCP</option></select><input id="routerColor" type="color" value="#7c5cff" title="Цвет линии графика"><button onclick="addRouter()">Добавить устройство</button></div><div id="routersTable"></div></section>
-    <section id="graphs" class="page"><div class="pageHead"><div><h2>Графики</h2></div><button onclick="openGraphModal()">+ Добавить график</button></div><div id="graphGrid" class="grid two"></div></section>
+    <section id="graphs" class="page"><div class="pageHead"><div><h2>Графики</h2></div><button onclick="openGraphModal()">+ Создать график</button></div><div id="graphGrid" class="grid two"></div></section>
     <section id="events" class="page"><div class="panel"><h2>События</h2>
         <div class="rowActions wrap eventFilters">
           <select id="eventHoursFilter" onchange="renderEvents()">
@@ -131,6 +131,12 @@
           <div><label>Таймаут сайта, сек</label><input id="setTimeout" type="number" min="1" placeholder="10"></div>
         </div>
         <label>Подтверждать проблему после проверок подряд</label><input id="setFailureConfirmChecks" type="number" min="1" max="10" placeholder="2">
+        <h4>Хранение истории</h4>
+        <div class="grid two compact">
+          <div><label>Режим хранения</label><select id="setHistoryRetentionMode"><option value="records">По количеству записей</option><option value="days">По дням</option></select></div>
+          <div><label>Хранить дней</label><select id="setHistoryRetentionDays"><option value="1">1 день</option><option value="7">7 дней</option><option value="30">30 дней</option><option value="90">90 дней</option></select></div>
+          <div><label>Максимум записей</label><input id="setHistoryMaxRecords" type="number" min="50" max="100000" step="50" placeholder="500"></div>
+        </div>
         <h4>Сайты</h4>
         <div class="grid two compact">
           <div><label>Предупреждение от, мс</label><input id="setSiteWarn" type="number" min="1" placeholder="1000"></div>
@@ -145,6 +151,7 @@
       </div>
 
       <div class="panel notifySettings"><h3>Уведомления Telegram</h3>
+        <label class="telegramToggle"><input id="setTelegramEnabled" type="checkbox"> Включить Telegram-уведомления</label>
         <div class="grid two compact">
           <div><label>Telegram bot token</label><input id="setToken" placeholder="Введите токен бота"></div>
           <div><label>Telegram chat ID</label><input id="setChat" placeholder="Введите chat ID"></div>
@@ -199,7 +206,7 @@
         <label><input id="setOpen" type="checkbox"> Открывать браузер при запуске</label>
       </div>
 
-      <div class="panel"><h3>Данные</h3><p>База лежит в <b>data/db.json</b></p><div class="rowActions wrap"><button onclick="exportConfig()">Экспорт конфигурации</button><button onclick="document.getElementById('importFile').click()">Импорт конфигурации</button><input id="importFile" type="file" accept="application/json,.json" style="display:none" onchange="importConfigFile(this)"></div><div class="dangerActions"><button class="danger" onclick="clearHistory()">Очистить историю графиков</button><button class="danger" onclick="resetAllData()">Удалить всё</button></div></div>
+      <div class="panel"><h3>Данные</h3><p>База лежит в <b>data/db.json</b></p><div class="reportTools"><select id="reportPeriod"><option value="24">За 24 часа</option><option value="168">За 7 дней</option></select><button onclick="exportReport('html')">Сформировать отчёт HTML</button><button onclick="exportReport('csv')">Отчёт CSV</button></div><div class="rowActions wrap"><button onclick="exportConfig()">Экспорт конфигурации</button><button onclick="document.getElementById('importFile').click()">Импорт конфигурации</button><input id="importFile" type="file" accept="application/json,.json" style="display:none" onchange="importConfigFile(this)"></div><div class="dangerActions"><button class="danger" onclick="clearHistory()">Очистить историю графиков</button><button class="danger" onclick="resetAllData()">Удалить всё</button></div></div>
     </div><button class="save" onclick="saveSettings()">Сохранить настройки</button></section>
 
   </main>
@@ -210,6 +217,7 @@
     <label>Название сайта</label><input id="siteEditName" placeholder="Например: Мой сайт">
     <label>URL сайта</label><input id="siteEditUrl" placeholder="Например: https://site.ru">
     <label>Цвет линии графика</label><input id="siteEditColor" class="colorInput" type="color" value="#35f0ff">
+    <label class="pauseToggle"><input id="siteEditPaused" type="checkbox"> Пауза мониторинга</label>
     <div class="modalActions"><button onclick="closeSiteModal()">Отмена</button><button onclick="saveSiteFromModal()">Сохранить</button></div></div></div>
   <div class="modal" id="routerModal"><div class="modalBox small"><h3>Редактировать устройство</h3>
     <input id="routerEditId" type="hidden">
@@ -218,11 +226,17 @@
     <label>Порты, необязательно</label><input id="routerEditPort" type="text" inputmode="numeric" placeholder="Например: 22, 80, 443">
     <label>Тип проверки</label><select id="routerEditCheckType"><option value="ping">Ping</option><option value="tcp">TCP-порты</option><option value="both">Ping + TCP</option></select>
     <label>Цвет линии графика</label><input id="routerEditColor" class="colorInput" type="color" value="#7c5cff">
+    <label class="pauseToggle"><input id="routerEditPaused" type="checkbox"> Пауза мониторинга</label>
     <div class="modalActions"><button onclick="closeRouterModal()">Отмена</button><button onclick="saveRouterFromModal()">Сохранить</button></div></div></div>
   <div class="modal" id="graphModal"><div class="modalBox"><h3 id="graphModalTitle">Добавить график</h3>
     <input id="graphEditId" type="hidden">
     <label>Название графика</label><input id="graphTitle" placeholder="Например: Пинг сервера">
-    <label>Что показывать</label><select id="graphType"><option value="site_response">Время ответа сайтов</option><option value="site_availability">Доступность сайтов</option><option value="router_ping">Пинг устройств</option><option value="site_codes">Коды ответа сайтов</option><option value="site_errors">Ошибки сайтов</option></select>
+    <label>Что показывать</label><select id="graphType" onchange="renderGraphObjectPicker()"><option value="site_response">Время ответа сайтов</option><option value="site_availability">Доступность сайтов</option><option value="router_ping">Пинг устройств</option><option value="site_codes">Коды ответа сайтов</option><option value="site_errors">Ошибки сайтов</option></select>
+    <div class="graphObjectPicker">
+      <div class="graphObjectPickerHead"><label id="graphObjectsLabel">Объекты на графике</label><div class="rowActions"><button type="button" class="miniAction" onclick="setGraphObjectSelection(true)">Все</button><button type="button" class="miniAction" onclick="setGraphObjectSelection(false)">Снять</button></div></div>
+      <div id="graphObjectsList" class="graphObjectsList"></div>
+      <p class="hint">Можно выбрать один сайт, одно устройство или любой набор объектов для независимого графика.</p>
+    </div>
     <div class="grid two compact"><div><label>Вид графика</label><select id="graphStyle"><option value="line">Линия</option><option value="bar">Столбцы</option><option value="pie">Круговая</option></select></div><div><label>Высота окна</label><select id="graphHeight"><option value="220">Компактный</option><option value="260">Обычный</option><option value="340">Большой</option></select></div></div>
     <label>Комментарий / описание</label><input id="graphNote" placeholder="Например: Основной график по сайтам">
     <p class="hint">После добавления сайта или устройства нажми кнопку ⟳, чтобы появились данные на графике.</p>
@@ -266,7 +280,7 @@
       <div class="modalActions"><button onclick="closeNetworkScan()">Закрыть</button></div>
     </div>
   </div>
-  <script src="/js/i18n.js?v=20260609-6"></script>
-  <script src="/js/app.js?v=20260609-5"></script>
+  <script src="/js/i18n.js?v=20260627-9"></script>
+  <script src="/js/app.js?v=20260627-9"></script>
 </body>
 </html>

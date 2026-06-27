@@ -2,7 +2,7 @@
 .topActions .iconBtn{min-width:54px;width:54px;padding:0;font-size:22px;font-weight:900;display:inline-flex;align-items:center;justify-content:center}
 .topActions select{min-width:0;width:155px}.modalBox.small{width:min(380px,92vw)}
 
-/* v0.6.0 compact overview */
+/* v0.6.5 compact overview */
 .cards5{grid-template-columns:repeat(5,1fr)}
 .stat{min-height:118px;padding:14px 16px}.stat b{font-size:30px}.stat span{font-size:13px}.stat small{font-size:14px}.stat.cyan{background:linear-gradient(135deg,#0f2a45,#112047)}.stat.purple{background:linear-gradient(135deg,#221846,#111936)}
 .panel{padding:16px;border-radius:18px}.panel h3{margin:0 0 12px;font-size:17px}.grid{gap:14px}.top{margin-bottom:16px}.main{padding-top:18px}.sideStatus{font-size:13px}.sideStatus small{display:block;color:#93a5c6;margin-top:8px}.sideStatus .miniTime{font-size:16px;margin:4px 0 2px}.sideStatus b#clock{font-size:22px;margin:3px 0}.table th,.table td{padding:9px 10px}.form{gap:10px}.page h2{font-size:26px;margin-top:0}#autoSel{width:150px;min-width:150px}.iconBtn{width:48px;height:40px;padding:0;font-size:22px}.cards{gap:12px}.event{padding:8px 10px;margin:6px 0}
@@ -17,12 +17,24 @@
 .cards7 .stat small{font-size:12px}
 .panelHead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
 .panelHead h3{margin:0}.panelHead span{font-size:12px;color:#9fb0c8;border:1px solid #26365d;border-radius:10px;padding:7px 10px;background:#0b1226}
-.previewControls{display:flex;align-items:center;gap:7px}.previewControls label{display:flex;align-items:center;gap:7px;margin:0;color:var(--muted);font-size:12px;white-space:nowrap}.previewControls select{width:58px;padding:7px 8px;border-radius:9px}.overviewPreviewPanel{min-width:0}
+.previewControls{display:flex;align-items:center;gap:7px}.previewControls label{display:flex;align-items:center;gap:7px;margin:0;color:var(--muted);font-size:12px;white-space:nowrap}.previewControls select{width:58px;padding:7px 8px;border-radius:9px}.overviewPreviewPanel{min-width:0;position:relative}
+.columnPickerButton{min-height:32px;padding:7px 10px;border-radius:9px;font-size:12px;background:#17264a}
+.columnPicker{display:none;position:absolute;right:14px;top:48px;z-index:18;min-width:190px;background:#0b1226;border:1px solid #354a7a;border-radius:14px;padding:10px;box-shadow:0 18px 50px rgba(0,0,0,.45)}
+.columnPicker.show{display:grid;grid-template-columns:1fr;gap:7px}
+.columnPickerRow{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
+.columnPicker label{display:flex;align-items:center;gap:8px;margin:0;padding:6px 8px;border-radius:9px;color:#dce7ff;font-size:12px;min-width:0}
+.columnPicker label:hover{background:#111d3b}.columnPicker input{width:auto;margin:0;accent-color:var(--accent)}
+.columnMoveActions{display:inline-flex;gap:4px}.columnMoveActions .orderButton{width:26px;min-height:26px;font-size:12px}
 .orderActions{display:inline-flex;gap:4px;margin-left:6px;vertical-align:middle}.orderButton{width:28px;min-height:28px;padding:3px;border-radius:7px;font-size:14px;line-height:1}.orderButton:disabled{opacity:.3;cursor:default;filter:none}
-.rowActions>.orderActions{margin-left:0}.previewRowActions{display:flex;align-items:center;gap:5px;white-space:nowrap}.previewRowActions .orderActions{margin-left:0}.previewDeleteButton{background:#572137;border-color:#7a2d48;color:#fff;font-size:18px}
+.rowActions>.orderActions{margin-left:0}.previewRowActions{display:flex;align-items:center;gap:6px;white-space:nowrap;min-width:0}.previewRowActions .orderActions{margin-left:0}.previewRowActions .miniAction:first-child{min-width:96px}.previewRowActions .orderButton,.previewRowActions .previewDeleteButton{flex:0 0 28px}.previewDeleteButton{background:#572137;border-color:#7a2d48;color:#fff;font-size:18px}
 .chartControls{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
 .chartStyleControl{display:flex;align-items:center;gap:7px;margin:0;color:#9fb0c8;font-size:12px;border:1px solid #26365d;border-radius:10px;padding:5px 7px;background:#0b1226;white-space:nowrap}
 .chartStyleControl select{width:92px;padding:5px 7px;margin:0!important;border-radius:7px}
+.chartGraphControl,.chartRangeControl,.chartYControl{display:flex;align-items:center;gap:7px;margin:0;color:#9fb0c8;font-size:12px;border:1px solid #26365d;border-radius:10px;padding:5px 7px;background:#0b1226;white-space:nowrap}
+.chartGraphControl select{width:150px;max-width:22vw;padding:5px 7px;margin:0!important;border-radius:7px}
+.chartRangeControl select{width:86px;padding:5px 7px;margin:0!important;border-radius:7px}
+.chartRangeControl input{width:64px;padding:5px 7px;margin:0!important;border-radius:7px;text-align:center}
+.chartYControl input{width:68px;padding:5px 7px;margin:0!important;border-radius:7px;text-align:center}
 .chartInterval{display:flex;align-items:center;gap:7px;margin:0;color:#9fb0c8;font-size:12px;border:1px solid #26365d;border-radius:10px;padding:5px 9px;background:#0b1226;white-space:nowrap}
 .chartInterval input{width:72px;padding:5px 7px;margin:0!important;border-radius:7px;text-align:center}
 .chartPanel canvas{height:245px}
@@ -64,6 +76,13 @@ textarea{width:100%;box-sizing:border-box;border:1px solid rgba(255,255,255,.12)
 .notifySettings .grid{margin-bottom:12px}
 .checksRow{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0 14px}
 .checksRow label{display:flex;align-items:center;gap:8px;background:#0d162d;border:1px solid #26375f;border-radius:12px;padding:10px 12px;margin:0;color:#dce7ff}
+.telegramToggle{display:inline-flex;align-items:center;gap:9px;background:#0d162d;border:1px solid #26375f;border-radius:12px;padding:10px 12px;margin:2px 0 14px;color:#dce7ff}
+.telegramToggle input{width:auto;margin:0;accent-color:var(--accent)}
+.pauseToggle{display:inline-flex;align-items:center;gap:9px;background:#0d162d;border:1px solid #26375f;border-radius:12px;padding:10px 12px;margin:12px 0 4px;color:#dce7ff}
+.pauseToggle input{width:auto;margin:0;accent-color:var(--warn)}
+.reportTools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:10px 0 8px}
+.reportTools select{width:150px;min-width:150px}
+.pauseButton{background:#3d345f;border-color:#6b5a93}
 .checksRow input{width:auto;accent-color:#36d6ff}
 .actionRow{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px}
 .telegramCommandsBox{margin:12px 0 16px;padding:14px;background:#0b142b;border:1px solid var(--border);border-radius:14px}.telegramCommandsBox .grid{margin-bottom:8px}.telegramCommandsBox label:has(input[type=checkbox]){display:flex;align-items:center;gap:8px;margin-top:32px}.telegramCommandsBox input[type=checkbox]{width:auto;accent-color:var(--accent)}
@@ -91,6 +110,13 @@ button.secondary{background:#17233e;border-color:#2b3e6b}
 .aboutGithub{display:block;color:#68e4ff;text-decoration:none;overflow-wrap:anywhere}
 .aboutGithub:hover{text-decoration:underline}
 .aboutStickers{margin-top:8px}
+.confirmDeleteBox{text-align:center;border-color:rgba(255,77,109,.45);box-shadow:0 22px 80px rgba(0,0,0,.55),0 0 0 1px rgba(255,77,109,.12) inset}
+.confirmDeleteIcon{width:54px;height:54px;margin:0 auto 14px;border-radius:18px;display:grid;place-items:center;background:linear-gradient(135deg,rgba(255,77,109,.28),rgba(255,138,0,.18));border:1px solid rgba(255,113,113,.35);color:#ffd2dc;font-size:28px;font-weight:900;box-shadow:0 0 28px rgba(255,77,109,.22)}
+.confirmDeleteBox h3{margin:0 0 10px;font-size:22px}
+.confirmDeleteText{margin:0 0 10px;color:var(--text);line-height:1.45}
+.confirmDeleteText b{color:#fff}
+.confirmDeleteActions{justify-content:center;margin-top:18px}
+.confirmDeleteActions button{min-width:118px}
 .diagnosticBox{width:min(860px,94vw)}
 .diagnosticHead{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
 .diagnosticHead h3{margin:0}.modalClose{font-size:22px;line-height:1;padding:7px 11px}
@@ -104,10 +130,12 @@ button.secondary{background:#17233e;border-color:#2b3e6b}
 #sitesTable,#routersTable{overflow-x:auto}
 #sitesTable .table,#routersTable .table{min-width:1050px}
 #sitePreview,#routerPreview{overflow-x:auto}
-#sitePreview .table,#routerPreview .table{min-width:760px}
-#sitePreview .table td,#sitePreview .table th,#routerPreview .table td,#routerPreview .table th{padding:7px 8px}
+#sitePreview .table,#routerPreview .table{width:100%;min-width:760px;table-layout:fixed}
+#sitePreview .table th,#sitePreview .table td,#routerPreview .table th,#routerPreview .table td{padding:7px 10px;vertical-align:middle;overflow:hidden;text-overflow:ellipsis}
+.previewTable td,.previewTable th{font-variant-numeric:tabular-nums}
+.previewTable td:last-child,.previewTable th:last-child{overflow:visible}
 .previewEllipsis{display:block;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.previewName{display:flex;align-items:center;min-width:0}.previewName .colorDot{flex:0 0 auto}
+.previewName{display:flex;align-items:center;min-width:0}.previewName .colorDot{flex:0 0 auto}.previewName .previewEllipsis{max-width:none}
 .miniAction{padding:6px 9px;min-height:30px;border-radius:8px;font-size:12px;white-space:nowrap}
 .networkScanBar{display:flex;justify-content:space-between;align-items:center;gap:16px;background:#0d1730;border:1px solid var(--border);border-radius:16px;padding:14px 16px;margin:14px 0}
 .networkScanBar b,.networkScanBar span{display:block}.networkScanBar span{color:var(--muted);font-size:12px;margin-top:4px}
@@ -121,8 +149,21 @@ button.secondary{background:#17233e;border-color:#2b3e6b}
 .chartCard .chartTop>div:first-child{min-width:0;flex:1 1 auto}
 .chartCard .chartTop .rowActions{flex:0 0 auto;display:flex;gap:10px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
 .chartCard .chartTop .rowActions button{white-space:nowrap;min-height:38px;padding:9px 14px}
+.chartCard .graphCardControls{flex:0 1 auto;max-width:100%;align-items:center}
+.chartCard .graphCardControls button{white-space:nowrap;min-height:38px;padding:9px 14px}
+.chartCard .graphCardControls .chartRangeControl select{width:92px}
+.chartCard .graphCardControls .chartRangeControl input{width:68px}
+.chartCard .graphCardControls .chartYControl input{width:68px}
 .chartCard .chartArea{clear:both;margin-top:0}
 #graphGrid .panel{overflow:hidden}
+.graphObjectPicker{margin:12px 0;padding:12px;background:#0b142b;border:1px solid var(--border);border-radius:14px}
+.graphObjectPickerHead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.graphObjectPickerHead label{margin:0}
+.graphObjectsList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;max-height:180px;overflow:auto;padding-right:4px}
+.graphObjectItem{display:flex;align-items:center;gap:8px;background:#0b1226;border:1px solid #1d2b4d;border-radius:10px;padding:8px 10px;color:#dce7ff;min-width:0}
+.graphObjectItem input{width:auto;accent-color:var(--accent);flex:0 0 auto}
+.graphObjectItem span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:650px){.graphObjectsList{grid-template-columns:1fr}.graphObjectPickerHead{align-items:flex-start;flex-direction:column}}
 
 .panel .rowActions.wrap{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:10px 0 0}
 .panel .rowActions.wrap button{white-space:nowrap;min-height:40px}
