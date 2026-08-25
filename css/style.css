@@ -54,7 +54,7 @@
 .cards7{gap:10px}.cards7 .stat{min-height:92px;padding:11px 12px;border-radius:16px}.cards7 .stat b{font-size:23px;margin:5px 0}.cards7 .stat span{margin-top:4px}.stat:after{width:78px;height:78px;right:-24px;top:-24px}
 .panel{padding:12px 14px;border-radius:16px;margin-bottom:12px}.panel h3{font-size:16px;margin-bottom:8px}.grid{gap:12px}.table{border-spacing:0 5px}.table th,.table td{padding:7px 9px;font-size:13px}.form{margin:12px 0}.page h2{font-size:24px}
 .chartPanel canvas,.chartCard canvas{height:210px;background:#0b1226;border:1px solid #1d2b4d;border-radius:12px}.chartArea{display:grid;grid-template-columns:150px 1fr;gap:10px;align-items:stretch}.chartLegend{background:#0b1226;border:1px solid #1d2b4d;border-radius:12px;padding:10px 8px;min-height:210px;overflow:auto}.legendItem{display:flex;align-items:center;gap:8px;font-size:12px;color:#dce7ff;margin:0 0 8px;min-width:0}.legendItem i{width:12px;height:12px;border-radius:50%;box-shadow:0 0 10px currentColor;flex:0 0 auto}.legendItem span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.muted{color:#8fa0bd;font-size:12px}
-.colorDot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:8px;vertical-align:-1px;box-shadow:0 0 10px currentColor}.siteForm{grid-template-columns:1fr 1.4fr 48px auto}.siteForm input[type=color],.colorInput{height:42px;padding:5px;min-width:48px}.modalBox.small{width:min(420px,92vw)}
+.colorDot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:8px;vertical-align:-1px;box-shadow:0 0 10px currentColor}.siteForm{grid-template-columns:1fr 1.4fr minmax(150px,.55fr) 48px auto}.deviceForm{grid-template-columns:1fr 1.1fr .65fr .65fr 48px auto}.siteForm input[type=color],.colorInput{height:42px;padding:5px;min-width:48px}.modalBox.small{width:min(420px,92vw)}
 @media(max-width:1200px){.chartArea{grid-template-columns:1fr}.chartLegend{min-height:auto;display:flex;flex-wrap:wrap;gap:6px}.legendItem{margin:0}}
 @media(max-width:1500px){.cards7{grid-template-columns:repeat(4,1fr)}}
 @media(max-width:1100px){.main{margin-left:0}.sidebar{position:static;width:auto}.cards7,.cards,.grid.two{grid-template-columns:1fr}.siteForm{grid-template-columns:1fr}}
@@ -85,6 +85,7 @@ textarea{width:100%;box-sizing:border-box;border:1px solid rgba(255,255,255,.12)
 .pauseButton{background:#3d345f;border-color:#6b5a93}
 .checksRow input{width:auto;accent-color:#36d6ff}
 .actionRow{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px}
+.tokenField{display:flex;gap:8px;align-items:center}.tokenField input{flex:1;min-width:0}.tokenField .miniAction{flex:0 0 auto}
 .telegramCommandsBox{margin:12px 0 16px;padding:14px;background:#0b142b;border:1px solid var(--border);border-radius:14px}.telegramCommandsBox .grid{margin-bottom:8px}.telegramCommandsBox label:has(input[type=checkbox]){display:flex;align-items:center;gap:8px;margin-top:32px}.telegramCommandsBox input[type=checkbox]{width:auto;accent-color:var(--accent)}
 .templatesGrid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:14px}
 .templateBox{background:#0b1226;border:1px solid #26375f;border-radius:16px;padding:16px}
@@ -130,6 +131,11 @@ button.secondary{background:#17233e;border-color:#2b3e6b}
 #sitesTable,#routersTable{overflow-x:auto}
 #sitesTable .table,#routersTable .table{min-width:1050px}
 #sitePreview,#routerPreview{overflow-x:auto}
+.previewTable .previewRowActions{gap:4px}
+.previewTable .previewRowActions .miniAction:first-child{min-width:74px}
+.previewTable .miniAction{padding:5px 7px;font-size:11px;min-height:26px}
+.previewTable .previewRowActions .orderButton{width:22px;flex-basis:22px;min-height:22px;padding:2px}
+.previewTable .previewRowActions .previewDeleteButton{flex-basis:22px;width:22px;font-size:15px}
 #sitePreview .table,#routerPreview .table{width:100%;min-width:760px;table-layout:fixed}
 #sitePreview .table th,#sitePreview .table td,#routerPreview .table th,#routerPreview .table td{padding:7px 10px;vertical-align:middle;overflow:hidden;text-overflow:ellipsis}
 .previewTable td,.previewTable th{font-variant-numeric:tabular-nums}
@@ -334,3 +340,60 @@ input[type="color"]{
 .statFoxNotify{right:-18px;bottom:-11px}
 .statLastProblem small{display:block;max-width:115px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media(max-width:1300px){.statFox{width:126px;height:126px}.statWithFox{padding-right:98px!important}}
+
+/* v0.7.1 network map */
+.mapHint{color:var(--muted);font-size:13px;align-self:center}
+/* The map toolbar used to live inside .pageHead's flex row (display:flex;justify-content:
+space-between) alongside the title block. That's fine for a toolbar whose width never changes
+(e.g. the single "+ Создать график" button on Графики), but the map toolbar grows a whole extra
+button + hint text once "Соединить" is active - and with justify-content:space-between, a wider
+right-hand flex item shifts leftward to fit, dragging every button in it sideways the moment you
+click Connect. Moving the toolbar out to its own full-width row (see index.html) means it can only
+grow/wrap in place instead of repositioning relative to the title. */
+.mapToolbar{margin-bottom:16px}
+#mapConnectBtn.active{background:linear-gradient(90deg,var(--button),var(--accent));color:#fff}
+#mapEdgeStyle{width:auto;min-width:170px}
+.mapWrap{background:#0b1226;border:1px solid #1d2b4d;border-radius:16px;overflow:auto;max-height:calc(100vh - 260px)}
+.mapCanvas{position:relative;width:2200px;height:1300px;background-image:linear-gradient(rgba(124,92,255,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(124,92,255,.07) 1px,transparent 1px);background-size:40px 40px}
+.mapEdges{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.mapEdges line.mapEdgeHit{stroke:transparent;stroke-width:14;cursor:pointer;pointer-events:stroke}
+.mapEdges line.mapEdgeLine{stroke:var(--muted);stroke-width:2;pointer-events:none}
+.mapEdges line.mapEdgeLine.dashed{stroke-dasharray:7 7}
+.mapEdges line.mapEdgeLine.wired{stroke:#7fa0d6}
+.mapNode{position:absolute;width:auto;min-width:96px;max-width:160px;height:auto;min-height:96px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:10px 10px;background:var(--panel2);border:2px solid var(--border);border-radius:16px;cursor:grab;user-select:none;touch-action:none;box-shadow:0 10px 26px rgba(0,0,0,.3);transition:box-shadow .15s,border-color .15s}
+.mapNode:hover{box-shadow:0 12px 32px rgba(0,0,0,.45)}
+.mapNode:active{cursor:grabbing}
+.mapNode.connectPending{outline:2px dashed var(--accent);outline-offset:3px}
+.mapNode.linked-statusOK{border-color:var(--ok);box-shadow:0 0 0 3px rgba(32,230,138,.2)}
+.mapNode.linked-statusSLOW{border-color:var(--warn);box-shadow:0 0 0 3px rgba(255,209,92,.2)}
+.mapNode.linked-statusBAD{border-color:var(--bad);box-shadow:0 0 0 3px rgba(255,77,109,.25)}
+.mapNode.linked-statusWAIT{border-color:var(--muted)}
+.mapNodeIcon{width:40px;height:40px;color:var(--accent);pointer-events:none}
+.mapNodeIcon svg{width:100%;height:100%;display:block}
+.mapNodeLabel{font-size:12px;color:var(--text);text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;word-break:break-word;line-height:1.25;pointer-events:none}
+.mapNodeAddr{font-size:10px;color:var(--muted);font-family:Consolas,"Courier New",monospace;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none}
+.mapNodeLinkBadge{font-size:10px;color:var(--muted);pointer-events:none}
+.mapNodeActions{position:absolute;top:-11px;right:-8px;display:flex;gap:4px;opacity:0;pointer-events:none;transition:opacity .15s;z-index:2}
+.mapNode:hover .mapNodeActions,.mapNode.menuOpen .mapNodeActions{opacity:1;pointer-events:auto}
+.mapNodeActions button{width:22px;height:22px;padding:0;border-radius:50%;font-size:12px;line-height:1;background:var(--panel);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.mapNodeActions button:hover{filter:brightness(1.3)}
+.mapNodeActions button:disabled{opacity:.35;cursor:default}
+.mapNodeActions button:disabled:hover{filter:none}
+/* Список соединений узла для быстрого "Отсоединить" - открывается по клику на
+   ✂️ рядом с узлом (см. mapToggleDisconnectMenu в app.js), а не по наведению,
+   поэтому держим сам блок действий видимым (.menuOpen выше), пока список открыт. */
+.mapDisconnectMenu{position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:8px;z-index:3;min-width:150px;max-width:220px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:6px;box-shadow:0 12px 30px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:3px}
+.mapDisconnectMenu button{width:100%;text-align:left;padding:6px 8px;border-radius:7px;border:none;background:transparent;color:var(--text);font-size:12px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mapDisconnectMenu button:hover{background:var(--panel2)}
+.mapDisconnectEmpty{padding:6px 8px;font-size:12px;color:var(--muted)}
+.mapEdgePlay{cursor:pointer;opacity:.5;pointer-events:auto;transition:opacity .15s}
+.mapEdgePlay:hover{opacity:1}
+.mapEdgePlay circle{fill:var(--panel2);stroke:var(--accent);stroke-width:1.4}
+.mapEdgePlay path{fill:var(--accent)}
+.mapPulse{pointer-events:none}
+.mapPulse.ok{fill:var(--ok);filter:drop-shadow(0 0 5px var(--ok))}
+.mapPulse.bad{fill:var(--bad);filter:drop-shadow(0 0 5px var(--bad))}
+.mapPingLabel{position:absolute;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:3px 9px;font-size:12px;white-space:nowrap;pointer-events:none;z-index:5;box-shadow:0 6px 18px rgba(0,0,0,.35)}
+.mapPingLabel.ok{color:var(--ok);border-color:var(--ok)}
+.mapPingLabel.bad{color:var(--bad);border-color:var(--bad)}
+@media(max-width:1000px){.mapWrap{max-height:70vh}}
