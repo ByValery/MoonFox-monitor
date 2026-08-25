@@ -1,0 +1,22 @@
+# Local monitoring data and credentials
+data/*
+!data/.gitkeep
+
+# Runtime files
+__pycache__/
+*.pyc
+*.log
+*.tmp
+*.pid
+outputs/
+runtime/
+
+# Editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local test folders
+work/

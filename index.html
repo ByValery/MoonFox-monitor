@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>MoonFox monitor</title>
-  <link rel="stylesheet" href="/css/style.css?v=20260627-9">
+  <link rel="stylesheet" href="/css/style.css?v=20260825-1">
 </head>
 <body>
   <aside class="sidebar">
@@ -19,6 +19,7 @@
       <button class="nav" data-page="sites">🌐 Сайты</button>
       <button class="nav" data-page="routers">🖧 Устройства</button>
       <button class="nav" data-page="graphs">📈 Графики</button>
+      <button class="nav" data-page="map">🗺️ Карта</button>
       <button class="nav" data-page="events">🔔 События</button>
       <button class="nav" data-page="settings">⚙️ Настройки</button>
     </nav>
@@ -29,7 +30,7 @@
       <b class="miniTime" id="lastCheckSide">—</b>
       <small>Аптайм</small>
       <b class="miniTime" id="uptimeSide">0м</b>
-      <small>Версия 0.6.5</small></div>
+      <small>Версия 0.7.0</small></div>
   </aside>
 
   <main class="main">
@@ -65,15 +66,44 @@
         <div class="panel"><h3>События сайтов</h3><div id="eventPreviewSites"></div><a onclick="showPage('events')">Все события →</a></div>
         <div class="panel"><h3>События устройств</h3><div id="eventPreviewDevices"></div><a onclick="showPage('events')">Все события →</a></div>
       </div>
-      <div class="grid two">
-        <div class="panel"><h3>Топ сайтов по времени ответа</h3><div id="topResponse"></div><a onclick="showPage('graphs')">Перейти к графикам →</a></div>
-        <div class="panel"><h3>Топ устройств по ping</h3><div id="topDevices"></div><a onclick="showPage('graphs')">Перейти к графикам →</a></div>
-      </div>
     </section>
 
-    <section id="sites" class="page"><h2>Сайты</h2><p>Введите название, адрес сайта и выберите цвет линии для графика.</p><div class="form siteForm"><input id="siteName" placeholder="Название, например: Мой сайт"><input id="siteUrl" placeholder="URL, например: https://site.ru"><input id="siteColor" type="color" value="#35f0ff" title="Цвет линии графика"><button onclick="addSite()">Добавить сайт</button></div><div id="sitesTable"></div></section>
+    <section id="sites" class="page"><h2>Сайты</h2><p>Введите название, адрес сайта и выберите тип сервиса. MoonFox сам выберет оптимальный URL проверки.</p><div class="form siteForm"><input id="siteName" placeholder="Название, например: Мой сайт"><input id="siteUrl" placeholder="URL, например: https://site.ru"><select id="siteServiceType" title="Тип сервиса"><option value="website">Обычный сайт</option><option value="jellyfin">Jellyfin</option><option value="nextcloud">Nextcloud</option><option value="homeassistant">Home Assistant</option><option value="grafana">Grafana</option><option value="prometheus">Prometheus</option></select><input id="siteColor" type="color" value="#35f0ff" title="Цвет линии графика"><button onclick="addSite()">Добавить сайт</button></div><div id="sitesTable"></div></section>
     <section id="routers" class="page"><h2>Устройства</h2><p>Добавь роутер, сервер, NAS, ПК или любой IP-узел. Можно указать несколько портов через запятую, например 22, 80, 443.</p><div class="networkScanBar"><div><b>Поиск устройств в локальной сети</b><span>Ручное сканирование частной IPv4-подсети.</span></div><button onclick="openNetworkScan()">Сканировать локальную сеть</button></div><div class="form siteForm deviceForm"><input id="routerName" placeholder="Название, например: MikroTik, VPS, NAS"><input id="routerAddr" placeholder="IP или адрес, например: 192.168.1.1"><input id="routerPort" type="text" inputmode="numeric" placeholder="Порты: 22, 80, 443"><select id="routerCheckType" title="Тип проверки"><option value="ping">Ping</option><option value="tcp">TCP-порты</option><option value="both">Ping + TCP</option></select><input id="routerColor" type="color" value="#7c5cff" title="Цвет линии графика"><button onclick="addRouter()">Добавить устройство</button></div><div id="routersTable"></div></section>
     <section id="graphs" class="page"><div class="pageHead"><div><h2>Графики</h2></div><button onclick="openGraphModal()">+ Создать график</button></div><div id="graphGrid" class="grid two"></div></section>
+    <section id="map" class="page">
+      <div class="pageHead"><div><h2>Карта сети</h2><p>Расставь узлы, соедини их линиями и привяжи к сайтам или устройствам, чтобы видеть их статус прямо на карте.</p></div>
+      </div>
+      <div class="rowActions wrap mapToolbar">
+          <select id="mapNodeType" title="Тип узла">
+            <option value="router">Роутер</option>
+            <option value="firewall">Firewall</option>
+            <option value="switch">Коммутатор</option>
+            <option value="server">Сервер / NAS</option>
+            <option value="pc">ПК</option>
+            <option value="laptop">Ноутбук</option>
+            <option value="phone">Телефон</option>
+            <option value="ap">Wi-Fi точка</option>
+            <option value="printer">Принтер</option>
+            <option value="cloud">Интернет / облако</option>
+            <option value="generic">Прочее</option>
+          </select>
+          <button onclick="addMapNode()">+ Добавить узел</button>
+          <select id="mapEdgeStyle" title="Тип соединения">
+            <option value="solid">Провод (сплошная)</option>
+            <option value="dashed">Wi-Fi (пунктир)</option>
+          </select>
+          <button id="mapConnectBtn" onclick="toggleMapConnectMode()">🔗 Соединить</button>
+          <button class="danger" onclick="clearMapConnectSelection()" id="mapCancelConnectBtn" style="display:none">Отменить соединение</button>
+          <span id="mapHint" class="mapHint"></span>
+      </div>
+      <div class="mapWrap">
+        <div id="mapCanvas" class="mapCanvas">
+          <svg id="mapEdges" class="mapEdges" width="2200" height="1300"></svg>
+          <div id="mapNodes" class="mapNodesLayer"></div>
+        </div>
+      </div>
+    </section>
     <section id="events" class="page"><div class="panel"><h2>События</h2>
         <div class="rowActions wrap eventFilters">
           <select id="eventHoursFilter" onchange="renderEvents()">
@@ -133,9 +163,9 @@
         <label>Подтверждать проблему после проверок подряд</label><input id="setFailureConfirmChecks" type="number" min="1" max="10" placeholder="2">
         <h4>Хранение истории</h4>
         <div class="grid two compact">
-          <div><label>Режим хранения</label><select id="setHistoryRetentionMode"><option value="records">По количеству записей</option><option value="days">По дням</option></select></div>
+          <div><label>Режим хранения</label><select id="setHistoryRetentionMode"><option value="days">По дням</option><option value="records">По количеству записей</option></select></div>
           <div><label>Хранить дней</label><select id="setHistoryRetentionDays"><option value="1">1 день</option><option value="7">7 дней</option><option value="30">30 дней</option><option value="90">90 дней</option></select></div>
-          <div><label>Максимум записей</label><input id="setHistoryMaxRecords" type="number" min="50" max="100000" step="50" placeholder="500"></div>
+          <div><label>Максимум записей</label><input id="setHistoryMaxRecords" type="number" min="50" max="1000000" step="50" placeholder="10000"></div>
         </div>
         <h4>Сайты</h4>
         <div class="grid two compact">
@@ -153,7 +183,9 @@
       <div class="panel notifySettings"><h3>Уведомления Telegram</h3>
         <label class="telegramToggle"><input id="setTelegramEnabled" type="checkbox"> Включить Telegram-уведомления</label>
         <div class="grid two compact">
-          <div><label>Telegram bot token</label><input id="setToken" placeholder="Введите токен бота"></div>
+          <div><label>Telegram bot token</label>
+            <div class="tokenField"><input id="setToken" type="password" autocomplete="off" placeholder="Введите токен бота"><button type="button" class="miniAction" id="toggleTokenBtn" onclick="toggleTokenVisibility()">Показать</button></div>
+          </div>
           <div><label>Telegram chat ID</label><input id="setChat" placeholder="Введите chat ID"></div>
         </div>
         <div class="telegramCommandsBox">
@@ -216,6 +248,7 @@
     <input id="siteEditId" type="hidden">
     <label>Название сайта</label><input id="siteEditName" placeholder="Например: Мой сайт">
     <label>URL сайта</label><input id="siteEditUrl" placeholder="Например: https://site.ru">
+    <label>Тип сервиса</label><select id="siteEditServiceType"><option value="website">Обычный сайт</option><option value="jellyfin">Jellyfin</option><option value="nextcloud">Nextcloud</option><option value="homeassistant">Home Assistant</option><option value="grafana">Grafana</option><option value="prometheus">Prometheus</option></select>
     <label>Цвет линии графика</label><input id="siteEditColor" class="colorInput" type="color" value="#35f0ff">
     <label class="pauseToggle"><input id="siteEditPaused" type="checkbox"> Пауза мониторинга</label>
     <div class="modalActions"><button onclick="closeSiteModal()">Отмена</button><button onclick="saveSiteFromModal()">Сохранить</button></div></div></div>
@@ -241,6 +274,18 @@
     <label>Комментарий / описание</label><input id="graphNote" placeholder="Например: Основной график по сайтам">
     <p class="hint">После добавления сайта или устройства нажми кнопку ⟳, чтобы появились данные на графике.</p>
     <div class="modalActions"><button onclick="closeGraphModal()">Отмена</button><button id="graphSaveBtn" onclick="saveGraphFromModal()">Добавить график</button></div></div></div>
+  <div class="modal" id="mapNodeModal"><div class="modalBox small"><h3>Узел карты</h3>
+    <input id="mapNodeEditId" type="hidden">
+    <label>Название</label><input id="mapNodeEditLabel" placeholder="Например: Основной роутер">
+    <label>Тип узла</label><select id="mapNodeEditType"><option value="router">Роутер</option><option value="firewall">Firewall</option><option value="switch">Коммутатор</option><option value="server">Сервер / NAS</option><option value="pc">ПК</option><option value="laptop">Ноутбук</option><option value="phone">Телефон</option><option value="ap">Wi-Fi точка</option><option value="printer">Принтер</option><option value="cloud">Интернет / облако</option><option value="generic">Прочее</option></select>
+    <label>Привязать к объекту мониторинга, необязательно</label><select id="mapNodeEditLink" onchange="mapAutoFillIpFromLink()"><option value="">Не привязывать</option></select>
+    <p class="hint">Привязанный узел подсвечивается цветом статуса (зелёный/жёлтый/красный) прямо на карте.</p>
+    <div class="grid two compact">
+      <div><label>IP / адрес</label><input id="mapNodeEditIp" placeholder="Например: 192.168.1.1"></div>
+      <div><label>Открывать по</label><select id="mapNodeEditScheme"><option value="http">http://</option><option value="https">https://</option></select></div>
+    </div>
+    <p class="hint">Адрес нужен, чтобы с карты можно было открыть узел в браузере или пропинговать его — даже если узел не привязан к сайту/устройству из мониторинга.</p>
+    <div class="modalActions"><button class="danger" id="mapNodeDeleteBtn" onclick="deleteMapNodeFromModal()">Удалить узел</button><button onclick="closeMapNodeModal()">Отмена</button><button onclick="saveMapNodeFromModal()">Сохранить</button></div></div></div>
   <div class="modal" id="autoModal"><div class="modalBox small"><h3>Интервал автообновления</h3>
     <label>Секунд</label><input id="autoCustomValue" type="number" min="5" max="3600" placeholder="Например: 45">
     <p class="hint">Минимум 5 секунд, максимум 3600 секунд.</p>
@@ -280,7 +325,7 @@
       <div class="modalActions"><button onclick="closeNetworkScan()">Закрыть</button></div>
     </div>
   </div>
-  <script src="/js/i18n.js?v=20260627-9"></script>
-  <script src="/js/app.js?v=20260627-9"></script>
+  <script src="/js/i18n.js?v=20260825-1"></script>
+  <script src="/js/app.js?v=20260825-1"></script>
 </body>
 </html>
